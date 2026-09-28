@@ -11,7 +11,8 @@ export type RuntimeEvent =
   | { type: "message"; message: string }
   | { type: "action-proposed"; action: ProposedAction }
   | { type: "action-completed"; action: ProposedAction }
-  | { type: "action-rejected"; action: ProposedAction };
+  | { type: "action-rejected"; action: ProposedAction }
+  | { type: "action-undone"; action: ProposedAction };
 
 type Listener = (event: RuntimeEvent) => void;
 
@@ -91,6 +92,51 @@ export class AeraRuntime {
     } catch (error) {
       this.setState("ERROR");
       this.journal.record(action, "rejected");
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  async undoLast() {
+    const entry = this.journal
+      .list()
+      .find(
+        (candidate) =>
+          candidate.status === "executed" &&
+          candidate.risk === "reversible",
+      );
+
+    if (!entry) {
+      this.setState("QUESTION");
+      return {
+        ok: false,
+        error: "There is no reversible AERA action to undo.",
+      };
+    }
+
+    const skill = this.skills.get(entry.skillId);
+    if (!skill?.undo) {
+      this.setState("ERROR");
+      return {
+        ok: false,
+        error: "The Skill that executed the last reversible action cannot undo it.",
+      };
+    }
+
+    this.setState("ACTING");
+    try {
+      await skill.undo(entry);
+      this.journal.markUndone(entry.id);
+      this.setState("SUCCESS");
+      this.emit({ type: "action-undone", action: entry });
+      return {
+        ok: true,
+        action: entry,
+      };
+    } catch (error) {
+      this.setState("ERROR");
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),

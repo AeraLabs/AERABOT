@@ -31,6 +31,7 @@ import { parseDirectIntent } from "./core/directIntent";
 import { parsePreferenceIntent } from "./core/preferenceIntent";
 import { answerVerifiedReaperQuery } from "./core/reaperQueries";
 import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
+import { isUndoIntent } from "./core/undoIntent";
 import { OrbScene } from "./orb/OrbScene";
 import { paletteCssVariables } from "./orb/palette";
 import { quantizedWindowKey } from "./orb/spatial";
@@ -477,6 +478,16 @@ export function App() {
     runtime.notify("“" + clean + "”");
 
     if (await runtime.runInternalCommand(clean)) return;
+
+    if (isUndoIntent(clean)) {
+      const result = await runtime.undoLast();
+      const reply = result.ok
+        ? "Undone: " + result.action.description + "."
+        : result.error;
+      appendAssistant(reply, "AERA journal · verified local action");
+      await finishReply(reply, result.ok ? "SUCCESS" : "QUESTION");
+      return;
+    }
 
     const preferenceIntent = parsePreferenceIntent(clean);
     if (preferenceIntent) {
