@@ -3,6 +3,7 @@ mod foreground;
 mod local_ai;
 mod position;
 mod reaper_osc;
+mod reaper_state;
 mod speech;
 
 use local_ai::{LocalChatRequest, LocalChatResponse, LocalProviderStatus};
@@ -171,6 +172,11 @@ fn reaper_transport(action: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn reaper_state_snapshot() -> reaper_state::ReaperBridgeStatus {
+    reaper_state::read_status()
+}
+
+#[tauri::command]
 fn foreground_window_snapshot() -> foreground::ForegroundWindowSnapshot {
     foreground::snapshot()
 }
@@ -239,6 +245,7 @@ pub fn run() {
             open_known_app,
             reaper_osc_status,
             reaper_transport,
+            reaper_state_snapshot,
             foreground_window_snapshot
         ])
         .run(tauri::generate_context!())
