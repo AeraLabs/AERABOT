@@ -283,3 +283,14 @@ mod tests {
         assert_eq!(snapshot.error.as_deref(), Some("test"));
     }
 }
+
+
+#[cfg(target_os = "macos")]
+pub fn request_permission() -> bool {
+    axuielement::is_process_trusted_with_prompt()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn request_permission() -> bool {
+    true
+}
