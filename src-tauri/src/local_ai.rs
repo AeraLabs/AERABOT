@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -38,6 +39,14 @@ pub struct LocalChatRequest {
     pub provider: String,
     pub model: String,
     pub messages: Vec<ChatMessage>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalVisionRequest {
+    pub model: String,
+    pub prompt: String,
+    pub image_png: Vec<u8>,
 }
 
 #[derive(Debug, Serialize)]
@@ -282,6 +291,73 @@ pub async fn probe() -> Result<Vec<LocalProviderStatus>, String> {
     };
 
     Ok(vec![ollama, llama_cpp, openai_local])
+}
+
+pub async fn vision(request: LocalVisionRequest) -> Result<LocalChatResponse, String> {
+    if request.model.trim().is_empty() {
+        return Err("Select a local Ollama vision model first.".into());
+    }
+    if request.prompt.trim().is_empty() {
+        return Err("AERA needs a visual-context question.".into());
+    }
+    if request.image_png.is_empty() || request.image_png.len() > 12 * 1024 * 1024 {
+        return Err("Visual capture is empty or too large.".into());
+    }
+
+    let http = client(180)?;
+    let started = Instant::now();
+    let encoded = BASE64.encode(&request.image_png);
+
+    let response = http
+        .post(format!("{OLLAMA_BASE}/api/chat"))
+        .json(&json!({
+            "model": request.model,
+            "messages": [{
+                "role": "user",
+                "content": request.prompt,
+                "images": [encoded]
+            }],
+            "stream": false
+        }))
+        .send()
+        .await
+        .map_err(|error| format!("Local Ollama vision is unavailable: {error}"))?;
+
+    let status = response.status();
+    let value = response
+        .json::<Value>()
+        .await
+        .map_err(|error| format!("Invalid Ollama vision response: {error}"))?;
+
+    if !status.is_success() {
+        return Err(value
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("The selected Ollama model could not analyze the image.")
+            .to_string());
+    }
+
+    let content = value
+        .pointer("/message/content")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    if content.is_empty() {
+        return Err("The local vision model returned an empty response.".into());
+    }
+
+    Ok(LocalChatResponse {
+        provider: "ollama".into(),
+        model: request.model,
+        content,
+        thinking: value
+            .pointer("/message/thinking")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned),
+        elapsed_ms: started.elapsed().as_millis(),
+    })
 }
 
 pub async fn chat(request: LocalChatRequest) -> Result<LocalChatResponse, String> {
