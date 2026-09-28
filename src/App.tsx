@@ -72,6 +72,8 @@ import {
   getDawBridgeStatus,
   getFlStudioBridgeStatus,
   installFlStudioBridge,
+  installLogicBridge,
+  installProToolsBridge,
   prepareDawBridge,
   type DawBridgeStatus,
 } from "./platform/dawBridge";
@@ -146,6 +148,8 @@ export function App() {
   const [reaperBridge, setReaperBridge] = useState<ReaperBridgeStatus | null>(null);
   const [flStudioBridge, setFlStudioBridge] = useState<DawBridgeStatus | null>(null);
   const [abletonBridge, setAbletonBridge] = useState<DawBridgeStatus | null>(null);
+  const [logicBridge, setLogicBridge] = useState<DawBridgeStatus | null>(null);
+  const [proToolsBridge, setProToolsBridge] = useState<DawBridgeStatus | null>(null);
   const [wakeWordStatus, setWakeWordStatus] = useState<WakeWordStatus | null>(null);
   const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
   const [monitors, setMonitors] = useState<MonitorSnapshot[]>([]);
@@ -321,6 +325,31 @@ export function App() {
 
     pollAbleton();
     const timer = window.setInterval(pollAbleton, 650);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    const pollCompanions = async () => {
+      const [logicResult, proToolsResult] = await Promise.allSettled([
+        getDawBridgeStatus("logic"),
+        getDawBridgeStatus("protools"),
+      ]);
+      if (disposed) return;
+      if (logicResult.status === "fulfilled") {
+        setLogicBridge(logicResult.value);
+      }
+      if (proToolsResult.status === "fulfilled") {
+        setProToolsBridge(proToolsResult.value);
+      }
+    };
+
+    pollCompanions();
+    const timer = window.setInterval(pollCompanions, 700);
     return () => {
       disposed = true;
       window.clearInterval(timer);
@@ -551,6 +580,36 @@ export function App() {
       const reply = error instanceof Error ? error.message : String(error);
       runtime.notify(reply);
       appendAssistant(reply, "AERA setup");
+    }
+  };
+
+  const installLogicCompanion = async () => {
+    try {
+      const result = await installLogicBridge();
+      const reply = result.alreadyCurrent
+        ? "The Logic AERA OSC companion is already installed. Configure Logic Controller Assignments and run the local companion."
+        : "Logic AERA OSC companion installed. Configure Logic Controller Assignments and run the local companion.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA Logic setup · local");
+    } catch (error) {
+      const reply = error instanceof Error ? error.message : String(error);
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA Logic setup");
+    }
+  };
+
+  const installProToolsCompanion = async () => {
+    try {
+      const result = await installProToolsBridge();
+      const reply = result.alreadyCurrent
+        ? "The Pro Tools AERA SDK wrapper is already installed. Run it with a helper built against Avid's Scripting SDK."
+        : "Pro Tools AERA SDK wrapper installed. Run it with a helper built against Avid's Scripting SDK.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA Pro Tools setup · local");
+    } catch (error) {
+      const reply = error instanceof Error ? error.message : String(error);
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA Pro Tools setup");
     }
   };
 
@@ -819,6 +878,28 @@ export function App() {
                   },
                 ]
               : []),
+            ...(foregroundDaw(foreground)?.id === "logic" &&
+            logicBridge?.available &&
+            !logicBridge.stale &&
+            logicBridge.state
+              ? [
+                  {
+                    role: "system" as const,
+                    content: dawModelContext("Logic Pro", logicBridge.state),
+                  },
+                ]
+              : []),
+            ...(foregroundDaw(foreground)?.id === "protools" &&
+            proToolsBridge?.available &&
+            !proToolsBridge.stale &&
+            proToolsBridge.state
+              ? [
+                  {
+                    role: "system" as const,
+                    content: dawModelContext("Pro Tools", proToolsBridge.state),
+                  },
+                ]
+              : []),
             { role: "user", content: clean },
           ],
         },
@@ -1081,6 +1162,36 @@ export function App() {
               </span>
               <span
                 className={
+                  logicBridge?.available && !logicBridge.stale
+                    ? "service-on"
+                    : "service-off"
+                }
+                title={
+                  logicBridge?.available && logicBridge.state
+                    ? "Logic bridge · " +
+                      (logicBridge.state.projectName ?? "untitled")
+                    : logicBridge?.error ?? "Logic bridge disconnected"
+                }
+              >
+                LOGIC
+              </span>
+              <span
+                className={
+                  proToolsBridge?.available && !proToolsBridge.stale
+                    ? "service-on"
+                    : "service-off"
+                }
+                title={
+                  proToolsBridge?.available && proToolsBridge.state
+                    ? "Pro Tools bridge · " +
+                      (proToolsBridge.state.projectName ?? "untitled")
+                    : proToolsBridge?.error ?? "Pro Tools bridge disconnected"
+                }
+              >
+                PT LIVE
+              </span>
+              <span
+                className={
                   preferences.wakeWordEnabled && wakeWordStatus?.available
                     ? "service-on"
                     : "service-off"
@@ -1323,6 +1434,34 @@ export function App() {
                 </small>
                 <button type="button" onClick={prepareAbletonCompanion}>
                   Prepare
+                </button>
+              </div>
+            )}
+
+          {dawStatuses.find((status) => status.id === "logic")?.installed &&
+            (!logicBridge?.available || logicBridge.stale) && (
+              <div className="setup-strip">
+                <span>LOGIC BRIDGE</span>
+                <small>
+                  Install the local OSC companion, then map AERA command/feedback
+                  paths in Logic Controller Assignments.
+                </small>
+                <button type="button" onClick={installLogicCompanion}>
+                  Install companion
+                </button>
+              </div>
+            )}
+
+          {dawStatuses.find((status) => status.id === "protools")?.installed &&
+            (!proToolsBridge?.available || proToolsBridge.stale) && (
+              <div className="setup-strip">
+                <span>PRO TOOLS BRIDGE</span>
+                <small>
+                  Install AERA's wrapper, then run it with a helper built against
+                  Avid's official Scripting SDK.
+                </small>
+                <button type="button" onClick={installProToolsCompanion}>
+                  Install wrapper
                 </button>
               </div>
             )}
