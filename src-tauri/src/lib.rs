@@ -7,8 +7,9 @@ mod reaper_osc;
 mod reaper_state;
 mod speech;
 mod wakeword;
+mod visual_context;
 
-use local_ai::{LocalChatRequest, LocalChatResponse, LocalProviderStatus};
+use local_ai::{LocalChatRequest, LocalChatResponse, LocalProviderStatus, LocalVisionRequest};
 use serde::Serialize;
 use speech::SpeechStatus;
 use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, WebviewWindow};
@@ -73,7 +74,7 @@ fn set_click_through(window: WebviewWindow, enabled: bool) -> Result<(), String>
 
 #[tauri::command]
 fn set_orb_size(window: WebviewWindow, diameter: f64) -> Result<(), String> {
-    let diameter = diameter.clamp(72.0, 560.0);
+    let diameter = diameter.clamp(72.0, 780.0);
     let scale = window.scale_factor().map_err(|error| error.to_string())?;
     let old_position = window.outer_position().map_err(|error| error.to_string())?;
     let old_size = window.outer_size().map_err(|error| error.to_string())?;
@@ -136,6 +137,33 @@ async fn probe_local_ai() -> Result<Vec<LocalProviderStatus>, String> {
 #[tauri::command]
 async fn local_chat(request: LocalChatRequest) -> Result<LocalChatResponse, String> {
     local_ai::chat(request).await
+}
+
+#[tauri::command]
+async fn local_vision(request: LocalVisionRequest) -> Result<LocalChatResponse, String> {
+    local_ai::vision(request).await
+}
+
+#[tauri::command]
+fn visual_context_status() -> visual_context::VisualContextStatus {
+    visual_context::status()
+}
+
+#[tauri::command]
+fn set_visual_context_enabled(enabled: bool) -> visual_context::VisualContextStatus {
+    visual_context::set_enabled(enabled)
+}
+
+#[tauri::command]
+async fn capture_visual_context(
+    process_id: Option<u32>,
+    title: Option<String>,
+) -> Result<visual_context::VisualCapture, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        visual_context::capture(process_id, title.as_deref())
+    })
+    .await
+    .map_err(|error| format!("Visual-context worker failed: {error}"))?
 }
 
 #[tauri::command]
@@ -337,6 +365,10 @@ pub fn run() {
             list_monitors,
             probe_local_ai,
             local_chat,
+            local_vision,
+            visual_context_status,
+            set_visual_context_enabled,
+            capture_visual_context,
             probe_local_speech,
             transcribe_audio,
             synthesize_speech,
