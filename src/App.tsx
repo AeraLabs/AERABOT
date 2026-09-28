@@ -693,7 +693,7 @@ export function App() {
       return;
     }
 
-    const directIntent = parseDirectIntent(clean);
+    const directIntent = parseDirectIntent(clean, foregroundDaw(foreground)?.id);
     if (directIntent) {
       const proposal = await runtime.skills.propose(
         directIntent.capability,
