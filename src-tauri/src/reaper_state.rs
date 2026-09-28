@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 const STATE_FILE: &str = "aera-state.json";
+const BRIDGE_SCRIPT_FILE: &str = "aera_bridge.lua";
+const BRIDGE_SCRIPT_SOURCE: &str =
+    include_str!("../../skills/reaper/reascript/aera_bridge.lua");
 const STALE_AFTER: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +63,14 @@ pub struct ReaperProjectState {
     pub tracks_truncated: bool,
     pub selected_track: Option<SelectedTrackSummary>,
     pub tracks: Vec<ReaperTrackState>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReaperBridgeInstallResult {
+    pub installed: bool,
+    pub already_current: bool,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -230,4 +241,53 @@ mod tests {
         assert_eq!(state.project_name, "Song.rpp");
         assert!(state.playing);
     }
+}
+
+
+fn bridge_script_target() -> Result<PathBuf, String> {
+    let candidates = state_path_candidates();
+    let state_path = candidates
+        .first()
+        .ok_or_else(|| "Could not determine the REAPER resource path on this system.".to_string())?;
+    let directory = state_path
+        .parent()
+        .ok_or_else(|| "REAPER bridge state path has no parent directory.".to_string())?;
+    Ok(directory.join(BRIDGE_SCRIPT_FILE))
+}
+
+pub fn install_bridge_script() -> Result<ReaperBridgeInstallResult, String> {
+    let target = bridge_script_target()?;
+    let parent = target
+        .parent()
+        .ok_or_else(|| "REAPER bridge script target has no parent directory.".to_string())?;
+
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("Could not create the REAPER AERA Scripts directory: {error}"))?;
+
+    if target.exists() {
+        let existing = fs::read_to_string(&target)
+            .map_err(|error| format!("Could not inspect the existing REAPER bridge script: {error}"))?;
+
+        if existing == BRIDGE_SCRIPT_SOURCE {
+            return Ok(ReaperBridgeInstallResult {
+                installed: true,
+                already_current: true,
+                path: target.to_string_lossy().into_owned(),
+            });
+        }
+
+        return Err(
+            "An AERA REAPER bridge script already exists but differs from this build. AERA will not overwrite a modified script automatically."
+                .into(),
+        );
+    }
+
+    fs::write(&target, BRIDGE_SCRIPT_SOURCE.as_bytes())
+        .map_err(|error| format!("Could not install the REAPER bridge script: {error}"))?;
+
+    Ok(ReaperBridgeInstallResult {
+        installed: true,
+        already_current: false,
+        path: target.to_string_lossy().into_owned(),
+    })
 }
