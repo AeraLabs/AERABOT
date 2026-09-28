@@ -18,9 +18,14 @@ export interface SkillManagerProps {
   wavrBridge: DawBridgeStatus | null;
   wakeWord: WakeWordStatus | null;
   foreground: ForegroundWindowSnapshot | null;
+  visualContextEnabled: boolean;
+  visualModel: string;
+  ollamaModels: string[];
   busy?: boolean;
   onRefresh(): void;
   onWindowPermission(): void;
+  onVisualContextChange(enabled: boolean): void;
+  onVisualModelChange(model: string): void;
   onInstallReaper(): void;
   onInstallFlStudio(): void;
   onPrepareAbleton(): void;
@@ -138,6 +143,24 @@ export function SkillManager(props: SkillManagerProps) {
         props.wakeWord?.available && !props.wakeWord.stale
           ? undefined
           : { label: "Install", run: props.onInstallWakeWord },
+    },
+    {
+      id: "vision",
+      title: "Visual context",
+      detail: props.visualContextEnabled
+        ? props.visualModel
+          ? "Explicit one-shot capture · local model: " + props.visualModel
+          : "Capture is enabled, but no local Ollama vision model is selected."
+        : "Off by default. AERA captures only after an explicit Look request.",
+      state: props.visualContextEnabled
+        ? props.visualModel
+          ? "ready"
+          : "partial"
+        : "optional",
+      action: {
+        label: props.visualContextEnabled ? "Disable" : "Enable",
+        run: () => props.onVisualContextChange(!props.visualContextEnabled),
+      },
     },
     {
       id: "desktop",
@@ -299,6 +322,27 @@ export function SkillManager(props: SkillManagerProps) {
           ))}
         </section>
       </div>
+
+      {props.visualContextEnabled && (
+        <div className="visual-model-setup">
+          <span>LOCAL VISION MODEL</span>
+          <select
+            value={props.visualModel}
+            onChange={(event) => props.onVisualModelChange(event.target.value)}
+          >
+            <option value="">Choose an Ollama vision model…</option>
+            {props.ollamaModels.map((model) => (
+              <option value={model} key={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+          <small>
+            AERA keeps captures local. If the selected model cannot process
+            images, the request returns an error instead of a guessed answer.
+          </small>
+        </div>
+      )}
 
       <footer className="skill-manager-footer">
         <small>
