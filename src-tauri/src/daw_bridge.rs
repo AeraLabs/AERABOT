@@ -48,6 +48,8 @@ pub struct DawState {
     pub transport: DawTransportState,
     pub selected_track: Option<DawTrackState>,
     #[serde(default)]
+    pub tracks: Vec<DawTrackState>,
+    #[serde(default)]
     pub capabilities: Vec<String>,
 }
 
@@ -98,7 +100,7 @@ fn home_dir() -> Result<PathBuf, String> {
 }
 
 fn known_daw(daw_id: &str) -> bool {
-    matches!(daw_id, "flstudio" | "ableton" | "logic" | "protools")
+    matches!(daw_id, "flstudio" | "ableton" | "logic" | "protools" | "wavr")
 }
 
 fn bridge_root(daw_id: &str) -> Result<PathBuf, String> {
@@ -224,6 +226,21 @@ fn allowed_capability(daw_id: &str, capability: &str, input: &Value) -> bool {
 
     match capability {
         "transport.play" | "transport.stop" | "transport.record.toggle" => true,
+        "transport.pause" if daw_id == "wavr" => true,
+        "transport.seek" if daw_id == "wavr" => input
+            .get("seconds")
+            .and_then(Value::as_f64)
+            .map(|value| (0.0..=86_400.0).contains(&value))
+            == Some(true),
+        "tempo.set" if daw_id == "wavr" => number_value
+            .map(|value| (30.0..=300.0).contains(&value))
+            == Some(true),
+        "track.select" if daw_id == "wavr" => input
+            .get("trackId")
+            .and_then(Value::as_str)
+            .map(|value| !value.is_empty() && value.len() <= 160)
+            == Some(true),
+        "project.inspect" | "track.fx.inspect" if daw_id == "wavr" => true,
         "track.mute.set" | "track.solo.set" | "track.arm.set" => {
             target == Some("selected") && boolean_value.is_some()
         }

@@ -28,6 +28,7 @@ export interface DawState {
   projectName: string | null;
   transport: DawTransportState;
   selectedTrack: DawTrackState | null;
+  tracks?: DawTrackState[];
   capabilities: string[];
 }
 
@@ -121,7 +122,7 @@ export function flStudioModelContext(state: DawState) {
 }
 
 
-export type CompanionDawId = "flstudio" | "ableton" | "logic" | "protools";
+export type CompanionDawId = "flstudio" | "ableton" | "logic" | "protools" | "wavr";
 
 export async function getDawBridgeStatus(
   dawId: CompanionDawId,
@@ -215,4 +216,31 @@ export async function installProToolsBridge(): Promise<DawBridgeInstallResult> {
     throw new Error("Pro Tools bridge installation requires the desktop runtime.");
   }
   return invoke<DawBridgeInstallResult>("install_pro_tools_bridge");
+}
+
+
+export function wavrModelContext(state: DawState) {
+  const tracks = state.tracks ?? [];
+  const trackList = tracks
+    .slice(0, 64)
+    .map(
+      (track) =>
+        track.index +
+        1 +
+        ": “" +
+        track.name +
+        "”" +
+        (track.armed ? " [armed]" : "") +
+        (track.muted ? " [muted]" : "") +
+        (track.soloed ? " [solo]" : ""),
+    )
+    .join("; ");
+
+  return [
+    dawModelContext("WAVR", state),
+    tracks.length > 0 ? "Verified WAVR tracks: " + trackList : null,
+    "WAVR is first-party: only use capabilities explicitly advertised by its live bridge.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }

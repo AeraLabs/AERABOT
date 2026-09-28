@@ -15,6 +15,7 @@ export interface SkillManagerProps {
   abletonBridge: DawBridgeStatus | null;
   logicBridge: DawBridgeStatus | null;
   proToolsBridge: DawBridgeStatus | null;
+  wavrBridge: DawBridgeStatus | null;
   wakeWord: WakeWordStatus | null;
   foreground: ForegroundWindowSnapshot | null;
   busy?: boolean;
@@ -79,13 +80,16 @@ export function SkillManager(props: SkillManagerProps) {
     foregroundReady,
   ].filter(Boolean).length;
 
-  const installedDaws = props.daws.filter((daw) => daw.installed).length;
+  const installedDaws =
+    props.daws.filter((daw) => daw.installed).length +
+    (props.wavrBridge?.available ? 1 : 0);
   const liveDaws = [
     bridgeState(Boolean(reaper?.installed), props.reaperBridge),
     bridgeState(Boolean(fl?.installed), props.flStudioBridge),
     bridgeState(Boolean(ableton?.installed), props.abletonBridge),
     bridgeState(Boolean(logic?.installed), props.logicBridge),
     bridgeState(Boolean(protools?.installed), props.proToolsBridge),
+    props.wavrBridge?.available && !props.wavrBridge.stale ? "ready" : "optional",
   ].filter((state) => state === "ready").length;
 
   const rows = [
@@ -151,6 +155,16 @@ export function SkillManager(props: SkillManagerProps) {
   ] as const;
 
   const dawRows = [
+    {
+      id: "wavr",
+      title: "WAVR · first-party",
+      installed: Boolean(props.wavrBridge?.available),
+      state:
+        props.wavrBridge?.available && !props.wavrBridge.stale
+          ? "ready" as const
+          : "optional" as const,
+      action: undefined,
+    },
     {
       id: "reaper",
       title: "REAPER",

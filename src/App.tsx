@@ -77,6 +77,7 @@ import {
   installProToolsBridge,
   prepareDawBridge,
   type DawBridgeStatus,
+  wavrModelContext,
 } from "./platform/dawBridge";
 import { getReaperOscStatus, type ReaperOscStatus } from "./platform/reaperOsc";
 import {
@@ -91,6 +92,7 @@ import { logicSkill } from "./skills/logic";
 import { proToolsSkill } from "./skills/protools";
 import { flStudioSkill } from "./skills/flstudio";
 import { reaperSkill } from "./skills/reaper";
+import { wavrSkill } from "./skills/wavr";
 import {
   consumeWakeWordEvent,
   getWakeWordStatus,
@@ -128,6 +130,7 @@ export function App() {
     instance.skills.register(proToolsSkill);
     instance.skills.register(logicSkill);
     instance.skills.register(abletonSkill);
+    instance.skills.register(wavrSkill);
     return instance;
   }, []);
   const recorderRef = useRef<PcmRecorder | null>(null);
@@ -156,6 +159,7 @@ export function App() {
   const [abletonBridge, setAbletonBridge] = useState<DawBridgeStatus | null>(null);
   const [logicBridge, setLogicBridge] = useState<DawBridgeStatus | null>(null);
   const [proToolsBridge, setProToolsBridge] = useState<DawBridgeStatus | null>(null);
+  const [wavrBridge, setWavrBridge] = useState<DawBridgeStatus | null>(null);
   const [wakeWordStatus, setWakeWordStatus] = useState<WakeWordStatus | null>(null);
   const [pendingWakeEvent, setPendingWakeEvent] = useState<WakeWordEvent | null>(null);
   const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
@@ -342,9 +346,10 @@ export function App() {
 
     let disposed = false;
     const pollCompanions = async () => {
-      const [logicResult, proToolsResult] = await Promise.allSettled([
+      const [logicResult, proToolsResult, wavrResult] = await Promise.allSettled([
         getDawBridgeStatus("logic"),
         getDawBridgeStatus("protools"),
+        getDawBridgeStatus("wavr"),
       ]);
       if (disposed) return;
       if (logicResult.status === "fulfilled") {
@@ -353,10 +358,13 @@ export function App() {
       if (proToolsResult.status === "fulfilled") {
         setProToolsBridge(proToolsResult.value);
       }
+      if (wavrResult.status === "fulfilled") {
+        setWavrBridge(wavrResult.value);
+      }
     };
 
     pollCompanions();
-    const timer = window.setInterval(pollCompanions, 700);
+    const timer = window.setInterval(pollCompanions, 500);
     return () => {
       disposed = true;
       window.clearInterval(timer);
@@ -910,6 +918,14 @@ export function App() {
                   },
                 ]
               : []),
+            ...(wavrBridge?.available && !wavrBridge.stale && wavrBridge.state
+              ? [
+                  {
+                    role: "system" as const,
+                    content: wavrModelContext(wavrBridge.state),
+                  },
+                ]
+              : []),
             { role: "user", content: clean },
           ],
         },
@@ -1129,6 +1145,7 @@ export function App() {
           abletonBridge={abletonBridge}
           logicBridge={logicBridge}
           proToolsBridge={proToolsBridge}
+          wavrBridge={wavrBridge}
           wakeWord={wakeWordStatus}
           foreground={foreground}
           busy={serviceBusy}
@@ -1289,6 +1306,21 @@ export function App() {
                 }
               >
                 PT LIVE
+              </span>
+              <span
+                className={
+                  wavrBridge?.available && !wavrBridge.stale
+                    ? "service-on"
+                    : "service-off"
+                }
+                title={
+                  wavrBridge?.available && wavrBridge.state
+                    ? "WAVR first-party bridge · " +
+                      (wavrBridge.state.projectName ?? "untitled")
+                    : wavrBridge?.error ?? "WAVR bridge disconnected"
+                }
+              >
+                WAVR
               </span>
               <span
                 className={

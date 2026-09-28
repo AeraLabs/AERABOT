@@ -9,7 +9,8 @@ export type DirectControlDawId =
   | "flstudio"
   | "protools"
   | "logic"
-  | "ableton";
+  | "ableton"
+  | "wavr";
 
 function normalize(value: string) {
   return value
@@ -41,6 +42,11 @@ const DAWS = [
     pattern: /\bableton(?:\s*live)?\b/,
   },
   {
+    id: "wavr",
+    label: "WAVR",
+    pattern: /\bwavr\b|\bwaver\b/,
+  },
+  {
     id: "reaper",
     label: "REAPER",
     pattern: /\breaper\b/,
@@ -57,7 +63,8 @@ function isDirectControlDaw(value: string | undefined): value is DirectControlDa
     value === "flstudio" ||
     value === "protools" ||
     value === "logic" ||
-    value === "ableton"
+    value === "ableton" ||
+    value === "wavr"
   );
 }
 
@@ -164,15 +171,29 @@ export function parseDirectIntent(
   }
 
   if (
-    targetId === "reaper" &&
+    (targetId === "reaper" || targetId === "wavr") &&
     /\b(pause|hold)\b/.test(value) &&
     !/\btrack|channel\b/.test(value)
   ) {
     return {
       capability: "transport.pause",
-      input: { appId: "reaper" },
-      successMessage: "REAPER paused.",
+      input: { appId: targetId },
+      successMessage: label + " paused.",
     };
+  }
+
+  if (targetId === "wavr") {
+    const tempo = value.match(/\b(?:set|change)\s+(?:the\s+)?(?:tempo|bpm)(?:\s+to)?\s+(\d{2,3})\b/);
+    if (tempo) {
+      const bpm = Number(tempo[1]);
+      if (bpm >= 30 && bpm <= 300) {
+        return {
+          capability: "tempo.set",
+          input: { appId: "wavr", value: bpm },
+          successMessage: "WAVR tempo set to " + bpm + " BPM.",
+        };
+      }
+    }
   }
 
   if (/\b(play|resume)\b/.test(value) && !/\btrack|channel\b/.test(value)) {
