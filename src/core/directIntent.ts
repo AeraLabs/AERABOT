@@ -4,6 +4,8 @@ export interface DirectIntent {
   successMessage: string;
 }
 
+export type DirectControlDawId = "reaper" | "flstudio" | "ableton";
+
 function normalize(value: string) {
   return value
     .toLowerCase()
@@ -44,38 +46,117 @@ function dawFromText(value: string) {
   return DAWS.find((daw) => daw.pattern.test(value)) ?? null;
 }
 
-export function parseDirectIntent(text: string): DirectIntent | null {
+function isDirectControlDaw(value: string | undefined): value is DirectControlDawId {
+  return value === "reaper" || value === "flstudio" || value === "ableton";
+}
+
+function labelFor(id: DirectControlDawId) {
+  return DAWS.find((daw) => daw.id === id)?.label ?? id;
+}
+
+export function parseDirectIntent(
+  text: string,
+  activeDawId?: string,
+): DirectIntent | null {
   const value = normalize(text);
   if (!value) return null;
 
-  const daw = dawFromText(value);
+  const namedDaw = dawFromText(value);
 
   if (
-    daw &&
+    namedDaw &&
     /\b(open|launch|start up|start)\b/.test(value) &&
-    !/\b(play|playing|playback|transport)\b/.test(value)
+    !/\b(play|playing|playback|transport|record)\b/.test(value)
   ) {
     return {
       capability: "software.open",
-      input: { appId: daw.id },
-      successMessage: daw.label + " is open.",
+      input: { appId: namedDaw.id },
+      successMessage: namedDaw.label + " is open.",
     };
   }
 
-  // Transport is real only for the REAPER Skill today.
-  const reaperContext =
-    daw?.id === "reaper" || (!daw && /\breaper\s+transport\b/.test(value));
-  if (!reaperContext) return null;
+  const targetId = isDirectControlDaw(namedDaw?.id)
+    ? namedDaw.id
+    : !namedDaw && isDirectControlDaw(activeDawId)
+      ? activeDawId
+      : null;
 
-  if (/\b(stop|halt)\b/.test(value)) {
+  if (!targetId) return null;
+  const label = labelFor(targetId);
+
+  if (/\b(unmute)\b/.test(value) && /\b(track|channel|it|this)\b/.test(value)) {
+    return {
+      capability: "track.mute.set",
+      input: { appId: targetId, target: "selected", value: false },
+      successMessage: "Selected " + label + " track unmuted.",
+    };
+  }
+
+  if (/\b(mute)\b/.test(value) && /\b(track|channel|it|this)\b/.test(value)) {
+    return {
+      capability: "track.mute.set",
+      input: { appId: targetId, target: "selected", value: true },
+      successMessage: "Selected " + label + " track muted.",
+    };
+  }
+
+  if (/\b(unsolo)\b/.test(value) && /\b(track|channel|it|this)\b/.test(value)) {
+    return {
+      capability: "track.solo.set",
+      input: { appId: targetId, target: "selected", value: false },
+      successMessage: "Selected " + label + " track unsoloed.",
+    };
+  }
+
+  if (/\b(solo)\b/.test(value) && /\b(track|channel|it|this)\b/.test(value)) {
+    return {
+      capability: "track.solo.set",
+      input: { appId: targetId, target: "selected", value: true },
+      successMessage: "Selected " + label + " track soloed.",
+    };
+  }
+
+  if (/\b(disarm)\b/.test(value) && /\b(track|channel|it|this)\b/.test(value)) {
+    return {
+      capability: "track.arm.set",
+      input: { appId: targetId, target: "selected", value: false },
+      successMessage: "Selected " + label + " track disarmed.",
+    };
+  }
+
+  if (/\barm\b/.test(value) && /\b(track|channel|it|this)\b/.test(value)) {
+    return {
+      capability: "track.arm.set",
+      input: { appId: targetId, target: "selected", value: true },
+      successMessage: "Selected " + label + " track armed.",
+    };
+  }
+
+  if (
+    targetId !== "reaper" &&
+    /\b(record|recording)\b/.test(value) &&
+    /\b(toggle|start|stop|record)\b/.test(value)
+  ) {
+    return {
+      capability: "transport.record.toggle",
+      input: { appId: targetId },
+      successMessage: label + " record mode toggled.",
+    };
+  }
+
+  if (/\b(stop|halt)\b/.test(value) && !/\btrack|channel\b/.test(value)) {
     return {
       capability: "transport.stop",
-      input: { appId: "reaper" },
-      successMessage: "REAPER stopped.",
+      input: { appId: targetId },
+      successMessage: label + " stopped.",
     };
   }
 
-  if (/\b(pause|hold)\b/.test(value)) {
+  if (
+    targetId === "reaper" &&
+    /\b(pause|hold)\b/.test(value) &&
+    !/\btrack|channel\b/.test(value)
+  ) {
     return {
       capability: "transport.pause",
       input: { appId: "reaper" },
@@ -83,11 +164,11 @@ export function parseDirectIntent(text: string): DirectIntent | null {
     };
   }
 
-  if (/\b(play|resume)\b/.test(value)) {
+  if (/\b(play|resume)\b/.test(value) && !/\btrack|channel\b/.test(value)) {
     return {
       capability: "transport.play",
-      input: { appId: "reaper" },
-      successMessage: "REAPER is playing.",
+      input: { appId: targetId },
+      successMessage: label + " is playing.",
     };
   }
 
