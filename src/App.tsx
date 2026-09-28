@@ -83,11 +83,9 @@ import {
   reaperTransportLabel,
   type ReaperBridgeStatus,
 } from "./platform/reaperState";
-import {
-  logicSkill,
-  proToolsSkill,
-} from "./skills/dawLaunch";
 import { abletonSkill } from "./skills/ableton";
+import { logicSkill } from "./skills/logic";
+import { proToolsSkill } from "./skills/protools";
 import { flStudioSkill } from "./skills/flstudio";
 import { reaperSkill } from "./skills/reaper";
 import {

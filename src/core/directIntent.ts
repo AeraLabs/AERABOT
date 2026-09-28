@@ -4,7 +4,12 @@ export interface DirectIntent {
   successMessage: string;
 }
 
-export type DirectControlDawId = "reaper" | "flstudio" | "ableton";
+export type DirectControlDawId =
+  | "reaper"
+  | "flstudio"
+  | "protools"
+  | "logic"
+  | "ableton";
 
 function normalize(value: string) {
   return value
@@ -47,7 +52,13 @@ function dawFromText(value: string) {
 }
 
 function isDirectControlDaw(value: string | undefined): value is DirectControlDawId {
-  return value === "reaper" || value === "flstudio" || value === "ableton";
+  return (
+    value === "reaper" ||
+    value === "flstudio" ||
+    value === "protools" ||
+    value === "logic" ||
+    value === "ableton"
+  );
 }
 
 function labelFor(id: DirectControlDawId) {
