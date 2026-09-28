@@ -370,7 +370,7 @@ button, input, select { font: inherit; }
 
 .preference-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 0.72fr;
+  grid-template-columns: 1fr 1fr 1fr 0.72fr 0.72fr;
   gap: 7px;
 }
 

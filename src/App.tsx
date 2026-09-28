@@ -17,15 +17,25 @@ import {
 import { parseDirectIntent } from "./core/directIntent";
 import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
 import { OrbScene } from "./orb/OrbScene";
+import { quantizedWindowKey } from "./orb/spatial";
 import { visualFor, type OrbState } from "./orb/state";
 import { getKnownAppStatus, type KnownAppStatus } from "./platform/apps";
 import {
   beginNativeDrag,
+  getForegroundWindowSnapshot,
   getSystemProfile,
+  glideOrbHostPhysical,
   isTauriRuntime,
+  listMonitors,
   resizeOrbHost,
+  type ForegroundWindowSnapshot,
+  type MonitorSnapshot,
   type SystemProfile,
 } from "./platform/bridge";
+import {
+  isReaperForeground,
+  planSpatialTarget,
+} from "./platform/spatialAwareness";
 import { getReaperOscStatus, type ReaperOscStatus } from "./platform/reaperOsc";
 import { reaperSkill } from "./skills/reaper";
 
@@ -57,6 +67,9 @@ export function App() {
     return instance;
   }, []);
   const recorderRef = useRef<PcmRecorder | null>(null);
+  const lastSpatialKeyRef = useRef("");
+  const lastSpatialMoveRef = useRef(0);
+  const manualSpatialHoldUntilRef = useRef(0);
 
   const [state, setState] = useState<OrbState>(runtime.state);
   const [message, setMessage] = useState("AERA ambient");
@@ -69,6 +82,8 @@ export function App() {
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
   const [reaperStatus, setReaperStatus] = useState<KnownAppStatus | null>(null);
   const [reaperOscStatus, setReaperOscStatus] = useState<ReaperOscStatus | null>(null);
+  const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
+  const [monitors, setMonitors] = useState<MonitorSnapshot[]>([]);
   const [serviceBusy, setServiceBusy] = useState(false);
   const [systemReducedMotion, setSystemReducedMotion] = useState(systemPrefersReducedMotion);
   const [preferences, setPreferences] = useState<AeraPreferences>(loadPreferences);
@@ -102,6 +117,7 @@ export function App() {
 
   useEffect(() => {
     getSystemProfile().then(setProfile).catch(() => undefined);
+    listMonitors().then(setMonitors).catch(() => undefined);
     refreshLocalServices().catch(() => undefined);
 
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -139,6 +155,102 @@ export function App() {
 
     return () => unlisten?.();
   }, [runtime]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    const poll = async () => {
+      try {
+        const snapshot = await getForegroundWindowSnapshot();
+        if (!disposed && snapshot.available && !snapshot.isAera) {
+          setForeground(snapshot);
+        }
+      } catch {
+        // Awareness is best-effort and never blocks the orb.
+      }
+    };
+
+    poll();
+    const timer = window.setInterval(poll, 900);
+    const monitorTimer = window.setInterval(() => {
+      listMonitors().then((value) => {
+        if (!disposed) setMonitors(value);
+      }).catch(() => undefined);
+    }, 5000);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      window.clearInterval(monitorTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!foreground || panelOpen) return;
+    const reaperFocused = isReaperForeground(foreground);
+
+    if (
+      reaperFocused &&
+      (state === "AMBIENT" || state === "AWAKE" || state === "IDLE")
+    ) {
+      runtime.setState("STUDIO");
+      runtime.notify("REAPER focus detected · Studio Mode");
+      return;
+    }
+
+    if (!reaperFocused && state === "STUDIO") {
+      runtime.setState("AMBIENT");
+      runtime.notify(
+        foreground.appName ? "Focused: " + foreground.appName : "AERA ambient",
+      );
+    }
+  }, [foreground, panelOpen, runtime, state]);
+
+  useEffect(() => {
+    if (
+      !preferences.spatialAwareness ||
+      !foreground?.bounds ||
+      foreground.minimized ||
+      panelOpen ||
+      monitors.length === 0
+    ) {
+      return;
+    }
+
+    const passiveStates: OrbState[] = [
+      "IDLE",
+      "AMBIENT",
+      "STUDIO",
+      "DND",
+      "SLEEPING",
+    ];
+    if (!passiveStates.includes(state)) return;
+    if (Date.now() < manualSpatialHoldUntilRef.current) return;
+
+    const key = quantizedWindowKey(
+      foreground.appId,
+      null,
+      foreground.bounds,
+    );
+    if (key === lastSpatialKeyRef.current) return;
+    if (Date.now() - lastSpatialMoveRef.current < 1800) return;
+
+    const orbSize = visualFor(state).nativeDiameter + 64;
+    const target = planSpatialTarget(foreground, monitors, orbSize, 18);
+    if (!target) return;
+
+    lastSpatialKeyRef.current = key;
+    lastSpatialMoveRef.current = Date.now();
+    glideOrbHostPhysical(target.x, target.y, reducedMotion).catch(() => undefined);
+  }, [
+    foreground,
+    monitors,
+    panelOpen,
+    preferences.spatialAwareness,
+    reducedMotion,
+    state,
+  ]);
 
   useEffect(() => {
     savePreferences(preferences);
@@ -383,7 +495,11 @@ export function App() {
         aria-label={message}
         onClick={activate}
         onPointerDown={(event) => {
-          if (event.button === 0 && event.altKey) beginNativeDrag().catch(() => undefined);
+          if (event.button === 0 && event.altKey) {
+            manualSpatialHoldUntilRef.current = Date.now() + 30_000;
+            lastSpatialKeyRef.current = "";
+            beginNativeDrag().catch(() => undefined);
+          }
         }}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -431,6 +547,18 @@ export function App() {
                 }
               >
                 OSC
+              </span>
+              <span
+                className={foreground?.available ? "service-on" : "service-off"}
+                title={
+                  foreground?.appName
+                    ? "Foreground: " +
+                      foreground.appName +
+                      (foreground.title ? " · " + foreground.title : "")
+                    : "Foreground app unavailable"
+                }
+              >
+                FOCUS
               </span>
               <button
                 type="button"
@@ -599,6 +727,17 @@ export function App() {
                 onChange={(event) => patchPreferences({ muted: !event.target.checked })}
               />
             </label>
+
+            <label className="toggle-row">
+              <span>Spatial</span>
+              <input
+                type="checkbox"
+                checked={preferences.spatialAwareness}
+                onChange={(event) =>
+                  patchPreferences({ spatialAwareness: event.target.checked })
+                }
+              />
+            </label>
           </div>
 
           <footer className="panel-footer">
@@ -606,6 +745,15 @@ export function App() {
             {profile && (
               <small>
                 {profile.platform} · {profile.architecture} · {profile.aiRuntime}
+              </small>
+            )}
+            {foreground && (
+              <small>
+                Focus · {foreground.appName ?? "unknown app"}
+                {foreground.title ? " · " + foreground.title : ""}
+                {foreground.permissionRequired && !foreground.permissionGranted
+                  ? " · geometry permission needed"
+                  : ""}
               </small>
             )}
           </footer>
