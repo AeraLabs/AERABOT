@@ -13,6 +13,9 @@ local separator = package.config:sub(1, 1)
 local bridge_dir = resource_path .. separator .. "Scripts" .. separator .. "AERA"
 local state_path = bridge_dir .. separator .. "aera-state.json"
 local temp_path = bridge_dir .. separator .. "aera-state.tmp"
+local command_path = bridge_dir .. separator .. "aera-command.tsv"
+local result_path = bridge_dir .. separator .. "aera-result.tsv"
+local result_temp_path = bridge_dir .. separator .. "aera-result.tmp"
 
 reaper.RecursiveCreateDirectory(bridge_dir, 0)
 
@@ -48,6 +51,106 @@ end
 local function json_bool(value)
   return value and "true" or "false"
 end
+
+local function clean_result_text(value)
+  return tostring(value or ""):gsub("[\t\r\n]", " ")
+end
+
+local function write_command_result(id, ok, before, after, message)
+  local file = io.open(result_temp_path, "wb")
+  if not file then return end
+  file:write(table.concat({
+    clean_result_text(id),
+    ok and "1" or "0",
+    before and "1" or "0",
+    after and "1" or "0",
+    clean_result_text(message)
+  }, "\t") .. "\n")
+  file:flush()
+  file:close()
+  os.remove(result_path)
+  os.rename(result_temp_path, result_path)
+end
+
+local function find_track_by_guid(project, guid)
+  local track_count = reaper.CountTracks(project)
+  for index = 0, track_count - 1 do
+    local track = reaper.GetTrack(project, index)
+    if track and (reaper.GetTrackGUID(track) or "") == guid then
+      return track
+    end
+  end
+  return nil
+end
+
+local function track_bool_value(track, operation)
+  if operation == "mute" then
+    return reaper.GetMediaTrackInfo_Value(track, "B_MUTE") > 0.5
+  elseif operation == "solo" then
+    return reaper.GetMediaTrackInfo_Value(track, "I_SOLO") > 0
+  elseif operation == "arm" then
+    return reaper.GetMediaTrackInfo_Value(track, "I_RECARM") > 0.5
+  end
+  return false
+end
+
+local function apply_track_operation(track, operation, value)
+  local numeric = value and 1 or 0
+  if operation == "mute" then
+    return reaper.SetTrackUIMute(track, numeric, 3) >= 0
+  elseif operation == "solo" then
+    return reaper.SetTrackUISolo(track, numeric, 3) >= 0
+  elseif operation == "arm" then
+    return reaper.SetTrackUIRecArm(track, numeric, 3) >= 0
+  end
+  return false
+end
+
+local function process_command(project)
+  local file = io.open(command_path, "rb")
+  if not file then return end
+  local payload = file:read("*a") or ""
+  file:close()
+  os.remove(command_path)
+
+  local id, operation, guid, raw_value =
+    payload:match("^([^\t\r\n]+)\t([^\t\r\n]+)\t([^\t\r\n]+)\t([01])")
+
+  if not id then
+    return
+  end
+
+  if operation ~= "mute" and operation ~= "solo" and operation ~= "arm" then
+    write_command_result(id, false, false, false, "Unsupported REAPER track operation.")
+    return
+  end
+
+  local track = find_track_by_guid(project, guid)
+  if not track then
+    write_command_result(id, false, false, false, "The target REAPER track no longer exists.")
+    return
+  end
+
+  local before = track_bool_value(track, operation)
+  local requested = raw_value == "1"
+  local ok = apply_track_operation(track, operation, requested)
+  local after = track_bool_value(track, operation)
+
+  if ok and after == requested then
+    last_change_count = -1
+    reaper.UpdateArrange()
+    write_command_result(id, true, before, after, "")
+  else
+    write_command_result(
+      id,
+      false,
+      before,
+      after,
+      "REAPER did not apply the requested track state."
+    )
+  end
+end
+
 
 local function bit_set(flags, bit)
   return (flags & bit) ~= 0
@@ -203,6 +306,11 @@ local function write_snapshot()
 end
 
 local function loop()
+  local project = select(1, reaper.EnumProjects(-1, ""))
+  if project then
+    process_command(project)
+  end
+
   local now = reaper.time_precise()
   if now - last_write >= WRITE_INTERVAL then
     write_snapshot()
@@ -213,6 +321,8 @@ end
 
 local function cleanup()
   os.remove(temp_path)
+  os.remove(command_path)
+  os.remove(result_temp_path)
 end
 
 reaper.atexit(cleanup)
