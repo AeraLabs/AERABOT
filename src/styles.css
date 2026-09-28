@@ -158,6 +158,10 @@ button, input, select { font: inherit; }
   -webkit-backdrop-filter: blur(32px) saturate(1.26);
   user-select: text;
   -webkit-user-select: text;
+  max-height: calc(100% - 142px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
 }
 
 .panel-header,
@@ -667,4 +671,104 @@ button, input, select { font: inherit; }
 .aera-root[data-state="dnd"] .orb-aura {
   opacity: 0.32;
   transform: scale(0.9);
+}
+
+
+.profile-save-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.profile-save-row input {
+  min-width: 0;
+  height: 29px;
+  padding: 0 8px;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 9px;
+  outline: none;
+  color: rgba(239, 250, 252, 0.82);
+  background: rgba(255,255,255,0.035);
+  font-size: 8px;
+}
+
+.profile-save-row input:focus {
+  border-color: color-mix(in srgb, var(--aera-secondary, #7ff0d2) 28%, transparent);
+}
+
+.profile-save-row button,
+.appearance-profile button {
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(226, 243, 246, 0.64);
+  background: rgba(255,255,255,0.03);
+  cursor: pointer;
+}
+
+.profile-save-row button {
+  padding: 0 9px;
+  border-radius: 9px;
+  font-size: 7px;
+}
+
+.profile-save-row button:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.appearance-profiles {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.appearance-profiles::-webkit-scrollbar {
+  display: none;
+}
+
+.appearance-profile {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 9px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+}
+
+.profile-use {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border: 0 !important;
+  border-radius: 0;
+  font-size: 7px;
+}
+
+.profile-delete {
+  width: 22px;
+  padding: 0;
+  border-width: 0 0 0 1px !important;
+  border-radius: 0;
+  font-size: 11px;
+}
+
+.profile-swatches {
+  display: flex;
+}
+
+.profile-swatches i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 50%;
+  margin-left: -2px;
+}
+
+.profile-swatches i:first-child {
+  margin-left: 0;
 }

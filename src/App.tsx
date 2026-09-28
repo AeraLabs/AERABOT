@@ -26,6 +26,13 @@ import {
   type TalkBackPreference,
 } from "./core/preferences";
 import { ORB_SIZE_MULTIPLIERS, SPATIAL_BEHAVIOR } from "./core/appearance";
+import {
+  applyAppearanceProfile,
+  captureAppearanceProfile,
+  loadAppearanceProfiles,
+  saveAppearanceProfiles,
+  type AppearanceProfile,
+} from "./core/appearanceProfiles";
 import { answerLocalContextQuery } from "./core/contextQueries";
 import { parseDirectIntent } from "./core/directIntent";
 import { parsePreferenceIntent } from "./core/preferenceIntent";
@@ -129,6 +136,10 @@ export function App() {
   const [serviceBusy, setServiceBusy] = useState(false);
   const [systemReducedMotion, setSystemReducedMotion] = useState(systemPrefersReducedMotion);
   const [preferences, setPreferences] = useState<AeraPreferences>(loadPreferences);
+  const [appearanceProfiles, setAppearanceProfiles] = useState<AppearanceProfile[]>(
+    loadAppearanceProfiles,
+  );
+  const [appearanceProfileName, setAppearanceProfileName] = useState("");
 
   const reducedMotion = resolvedReducedMotion(preferences, systemReducedMotion);
   const activeProvider = useMemo(
@@ -360,7 +371,39 @@ export function App() {
       ...current,
       orbPalette: DEFAULT_ORB_PALETTE,
       presenceStyle: "balanced",
+      orbSize: "standard",
+      spatialBehavior: "adaptive",
     }));
+  };
+
+  const saveCurrentAppearance = () => {
+    const id =
+      "look-" +
+      Date.now().toString(36) +
+      "-" +
+      Math.random().toString(36).slice(2, 7);
+    const profile = captureAppearanceProfile(
+      id,
+      appearanceProfileName || "AERA Look " + (appearanceProfiles.length + 1),
+      preferences,
+    );
+    const next = saveAppearanceProfiles([
+      profile,
+      ...appearanceProfiles.filter((candidate) => candidate.id !== profile.id),
+    ]);
+    setAppearanceProfiles(next);
+    setAppearanceProfileName("");
+  };
+
+  const useAppearanceProfile = (profile: AppearanceProfile) => {
+    setPreferences((current) => applyAppearanceProfile(current, profile));
+  };
+
+  const removeAppearanceProfile = (id: string) => {
+    const next = saveAppearanceProfiles(
+      appearanceProfiles.filter((profile) => profile.id !== id),
+    );
+    setAppearanceProfiles(next);
   };
 
   const activate = async () => {
@@ -1145,6 +1188,52 @@ export function App() {
                 Reset look
               </button>
             </div>
+
+            <div className="profile-save-row">
+              <input
+                value={appearanceProfileName}
+                maxLength={32}
+                onChange={(event) => setAppearanceProfileName(event.target.value)}
+                placeholder="Name this look…"
+                aria-label="Appearance profile name"
+              />
+              <button
+                type="button"
+                disabled={appearanceProfiles.length >= 6}
+                onClick={saveCurrentAppearance}
+              >
+                Save look
+              </button>
+            </div>
+
+            {appearanceProfiles.length > 0 && (
+              <div className="appearance-profiles" aria-label="Saved AERA looks">
+                {appearanceProfiles.map((profile) => (
+                  <div className="appearance-profile" key={profile.id}>
+                    <button
+                      type="button"
+                      className="profile-use"
+                      onClick={() => useAppearanceProfile(profile)}
+                    >
+                      <span className="profile-swatches" aria-hidden="true">
+                        <i style={{ background: profile.palette.primary }} />
+                        <i style={{ background: profile.palette.secondary }} />
+                        <i style={{ background: profile.palette.accent }} />
+                      </span>
+                      <span>{profile.name}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="profile-delete"
+                      aria-label={"Delete " + profile.name}
+                      onClick={() => removeAppearanceProfile(profile.id)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <footer className="panel-footer">
