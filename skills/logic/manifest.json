@@ -1,30 +1,47 @@
 {
   "id": "logic",
   "name": "Logic Pro",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "AeraLabs",
   "capabilities": [
-    "software.open"
+    "software.open",
+    "transport.play",
+    "transport.stop",
+    "transport.record.toggle",
+    "track.mute.set",
+    "track.solo.set",
+    "track.arm.set",
+    "track.volume.set",
+    "track.pan.set"
   ],
   "platforms": [
     "macos-arm64",
     "macos-x86_64"
   ],
   "integrationPriority": [
-    "Logic Pro OSC control surfaces",
-    "Logic Lua control-surface scripting",
-    "MIDI/MMC where appropriate",
+    "Logic Pro OSC Controller Assignments",
+    "verified loopback UDP feedback",
+    "Lua-supported control surfaces",
     "macOS Accessibility fallback"
   ],
   "currentImplementation": {
     "softwareDetection": true,
     "launch": true,
-    "transport": false,
-    "trackControl": false,
-    "projectInspection": false
+    "transport": "companion-ready",
+    "trackControl": "companion-ready",
+    "projectInspection": "feedback-dependent",
+    "verifiedAcknowledgements": true
   },
   "permissions": {
-    "software.open": "safe"
+    "software.open": "safe",
+    "transport.play": "safe",
+    "transport.stop": "safe",
+    "transport.record.toggle": "safe",
+    "track.mute.set": "reversible",
+    "track.solo.set": "reversible",
+    "track.arm.set": "reversible",
+    "track.volume.set": "reversible",
+    "track.pan.set": "reversible"
   },
-  "notes": "Phase 1 detects and launches Logic Pro. Deep control should use Logic's supported control-surface layer, including Lua-backed assignments and UDP/IPv4 OSC."
+  "notes": "AERA installs a standard-library loopback OSC companion. Deep commands execute only while a live Logic companion advertises the capability, and acknowledgements require matching Logic feedback."
 }

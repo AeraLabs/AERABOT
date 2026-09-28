@@ -47,9 +47,15 @@ describe("deterministic AERA intents", () => {
     });
   });
 
-  it("keeps unsupported deep Logic and Pro Tools control out of direct routing", () => {
-    expect(parseDirectIntent("play Logic Pro")).toBeNull();
-    expect(parseDirectIntent("mute this track", "protools")).toBeNull();
+  it("routes Logic and Pro Tools through their verified companion Skills", () => {
+    expect(parseDirectIntent("play Logic Pro")).toMatchObject({
+      capability: "transport.play",
+      input: { appId: "logic" },
+    });
+    expect(parseDirectIntent("mute this track", "protools")).toMatchObject({
+      capability: "track.mute.set",
+      input: { appId: "protools", target: "selected", value: true },
+    });
   });
 
   it("does not hijack ordinary conversation", () => {

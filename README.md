@@ -68,6 +68,8 @@ Current adapters:
 - **llama.cpp**
 - **any configured OpenAI-compatible local server on explicit loopback**
 
+AERA also has an optional fully local wake-word companion. The runtime does not bundle wake-word model weights; users choose a model whose license fits their use case.
+
 Installed models are discovered at runtime. AERA does not hardcode one model family, so new open/local models can be used without changing AERA Core.
 
 The generic OpenAI-compatible adapter is intentionally restricted to `127.0.0.1`, `localhost`, or `::1`. Remote and LAN endpoints are rejected by the native bridge.
@@ -98,6 +100,11 @@ Implemented:
 - pause transport through loopback OSC
 - read live REAPER project/transport/track state through a read-only Lua ReaScript
 - expose verified selected-track context to the local model while REAPER is foreground
+- deep FL Studio control through its Python MIDI Scripting API companion
+- deep Ableton control through the Max for Live / Live API companion
+- Logic Pro deep-control Skill plus verified loopback OSC companion
+- Pro Tools deep-control Skill plus an Avid SDK-helper wrapper contract
+- optional local wake-word companion with cooldown/deduplicated events
 - journal executed actions
 
 The local model proposes semantic actions. The Skill validates the target and input. AERA Core owns execution.
@@ -237,14 +244,10 @@ Destructive future operations must require confirmation. Reversible operations s
 
 These are still future work:
 
-- always-listening wake word
+- bundled/licensed wake-word model distribution
 - screen/application visual inspection
-- REAPER mutating track operations beyond transport
-- deeper DAW operations such as arm/mute/solo/parameters
-- deep FL Studio MIDI Scripting adapter
-- Pro Tools Scripting SDK adapter
-- Logic OSC/Lua control-surface adapter
-- Ableton Live API/Max for Live adapter
+- automatic generation/building of Avid Pro Tools SDK helper artifacts
+- automatic Logic Controller Assignment provisioning
 - WAVR first-party Skill
 - Unreal/Blender Skills
 - architecture-aware updater
@@ -281,6 +284,8 @@ docs/
   PLATFORM_SUPPORT.md
   REAPER_SKILL.md
   DAW_SKILLS.md
+  LOGIC_SKILL.md
+  PROTOOLS_SKILL.md
 ```
 
 The design rule remains simple:

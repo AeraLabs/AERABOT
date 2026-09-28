@@ -1,10 +1,18 @@
 {
   "id": "protools",
   "name": "Pro Tools",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "AeraLabs",
   "capabilities": [
-    "software.open"
+    "software.open",
+    "transport.play",
+    "transport.stop",
+    "transport.record.toggle",
+    "track.mute.set",
+    "track.solo.set",
+    "track.arm.set",
+    "track.volume.set",
+    "track.pan.set"
   ],
   "platforms": [
     "macos-arm64",
@@ -14,18 +22,27 @@
   "integrationPriority": [
     "Avid Pro Tools Scripting SDK",
     "gRPC / Protocol Buffers",
-    "foreground-window awareness",
-    "accessibility fallback"
+    "verified local SDK helper",
+    "foreground-window awareness"
   ],
   "currentImplementation": {
     "softwareDetection": true,
     "launch": true,
-    "transport": false,
-    "trackControl": false,
-    "projectInspection": false
+    "transport": "sdk-helper-ready",
+    "trackControl": "sdk-helper-ready",
+    "projectInspection": "sdk-helper-ready",
+    "verifiedAcknowledgements": true
   },
   "permissions": {
-    "software.open": "safe"
+    "software.open": "safe",
+    "transport.play": "safe",
+    "transport.stop": "safe",
+    "transport.record.toggle": "safe",
+    "track.mute.set": "reversible",
+    "track.solo.set": "reversible",
+    "track.arm.set": "reversible",
+    "track.volume.set": "reversible",
+    "track.pan.set": "reversible"
   },
-  "notes": "Phase 1 detects and launches Pro Tools. Deep control should use Avid's free Scripting SDK, which exposes session queries and writable commands through IPC."
+  "notes": "AERA includes the wrapper and Skill contract but does not redistribute Avid SDK-generated artifacts. A live helper built against the official Scripting SDK must report capabilities before deep Pro Tools commands can execute."
 }
