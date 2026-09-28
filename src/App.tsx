@@ -91,6 +91,7 @@ import { reaperSkill } from "./skills/reaper";
 import {
   consumeWakeWordEvent,
   getWakeWordStatus,
+  installWakeWordCompanion,
   type WakeWordStatus,
 } from "./platform/wakeword";
 
@@ -520,6 +521,21 @@ export function App() {
         error instanceof Error ? error.message : "Could not request window awareness.";
       runtime.notify(reply);
       appendAssistant(reply, "AERA setup");
+    }
+  };
+
+  const installWakeWordLocalCompanion = async () => {
+    try {
+      const result = await installWakeWordCompanion();
+      const reply = result.alreadyCurrent
+        ? "The local wake-word companion script is already installed. Add your licensed sherpa-onnx model paths and start it locally."
+        : "Wake-word companion installed locally. Add your licensed sherpa-onnx model paths and start it locally.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA wake word · local");
+    } catch (error) {
+      const reply = error instanceof Error ? error.message : String(error);
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA wake word");
     }
   };
 
@@ -1315,9 +1331,12 @@ export function App() {
             <div className="setup-strip">
               <span>WAKE WORD</span>
               <small>
-                Start the local sherpa-onnx companion with your licensed KWS model.
-                AERA does not bundle model weights.
+                Install the local sherpa-onnx companion, then point it at a KWS
+                model whose license fits your use. AERA does not bundle model weights.
               </small>
+              <button type="button" onClick={installWakeWordLocalCompanion}>
+                Install companion
+              </button>
             </div>
           )}
 

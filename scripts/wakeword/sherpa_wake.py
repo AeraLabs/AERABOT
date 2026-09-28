@@ -29,6 +29,7 @@ except ImportError:
     sys.exit(2)
 
 SCHEMA_VERSION = 1
+SERVICE_VERSION = "0.2.0"
 SAMPLE_RATE = 16000
 FRAME_SECONDS = 0.10
 ROOT = Path.home() / ".aera" / "wakeword"
@@ -41,14 +42,16 @@ def atomic_json(path: Path, payload):
     temp.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
     os.replace(temp, path)
 
-def heartbeat(phrase: str):
+def heartbeat(phrase: str, cooldown_ms: int):
     atomic_json(
         STATE,
         {
             "schemaVersion": SCHEMA_VERSION,
             "engine": "sherpa-onnx",
+            "serviceVersion": SERVICE_VERSION,
             "phrase": phrase,
             "sampleRate": SAMPLE_RATE,
+            "cooldownMs": cooldown_ms,
         },
     )
 
@@ -58,6 +61,7 @@ def emit_event(phrase: str):
         {
             "schemaVersion": SCHEMA_VERSION,
             "engine": "sherpa-onnx",
+            "eventId": f"wake-{time.time_ns():x}",
             "phrase": phrase,
             "detectedAtMs": int(time.time() * 1000),
         },
@@ -85,6 +89,12 @@ def args():
     parser.add_argument("--keywords-threshold", type=float, default=0.25)
     parser.add_argument("--num-trailing-blanks", type=int, default=1)
     parser.add_argument("--device", type=int, default=None)
+    parser.add_argument(
+        "--cooldown-seconds",
+        type=float,
+        default=1.8,
+        help="Minimum time between wake events.",
+    )
     return parser.parse_args()
 
 def main():
@@ -107,6 +117,9 @@ def main():
     stream = spotter.create_stream()
     samples_per_read = int(FRAME_SECONDS * SAMPLE_RATE)
     last_heartbeat = 0.0
+    last_detection = -1e9
+    cooldown_seconds = max(0.5, config.cooldown_seconds)
+    cooldown_ms = int(cooldown_seconds * 1000)
 
     print(
         f"AERA wake-word companion active: {config.phrase_label} "
@@ -122,7 +135,7 @@ def main():
         while True:
             now = time.monotonic()
             if now - last_heartbeat >= 0.75:
-                heartbeat(config.phrase_label)
+                heartbeat(config.phrase_label, cooldown_ms)
                 last_heartbeat = now
 
             samples, _ = microphone.read(samples_per_read)
@@ -133,8 +146,10 @@ def main():
 
             result = spotter.get_result(stream)
             if result:
-                emit_event(config.phrase_label)
-                print(f"Detected wake phrase: {config.phrase_label}")
+                if now - last_detection >= cooldown_seconds:
+                    emit_event(config.phrase_label)
+                    last_detection = now
+                    print(f"Detected wake phrase: {config.phrase_label}")
                 spotter.reset_stream(stream)
 
 if __name__ == "__main__":

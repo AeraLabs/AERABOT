@@ -271,6 +271,11 @@ fn wake_word_status() -> wakeword::WakeWordStatus {
 }
 
 #[tauri::command]
+fn install_wake_word_companion() -> Result<wakeword::WakeWordInstallResult, String> {
+    wakeword::install_companion()
+}
+
+#[tauri::command]
 fn consume_wake_word_event() -> Result<Option<wakeword::WakeWordEvent>, String> {
     wakeword::consume_event()
 }
@@ -351,6 +356,7 @@ pub fn run() {
             install_logic_bridge,
             install_pro_tools_bridge,
             wake_word_status,
+            install_wake_word_companion,
             consume_wake_word_event,
             foreground_window_snapshot,
             request_foreground_permission
