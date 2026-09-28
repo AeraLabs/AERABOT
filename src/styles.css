@@ -1034,3 +1034,41 @@ button, input, select { font: inherit; }
   color: rgba(238,255,251,0.86);
   font-weight: 600;
 }
+
+
+.visual-model-setup {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 11px;
+  background: rgba(255,255,255,0.02);
+}
+
+.visual-model-setup > span {
+  color: color-mix(in srgb, var(--aera-accent, #65aaff) 72%, white 10%);
+  font-size: 6.3px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.visual-model-setup select {
+  min-width: 0;
+  height: 27px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  outline: none;
+  padding: 0 7px;
+  color: rgba(238,250,252,0.8);
+  background: rgba(255,255,255,0.04);
+  font-size: 7px;
+}
+
+.visual-model-setup small {
+  grid-column: 1 / -1;
+  color: rgba(185,207,212,0.33);
+  font-size: 6.5px;
+  line-height: 1.35;
+}
