@@ -87,6 +87,11 @@ import {
 } from "./skills/dawLaunch";
 import { flStudioSkill } from "./skills/flstudio";
 import { reaperSkill } from "./skills/reaper";
+import {
+  consumeWakeWordEvent,
+  getWakeWordStatus,
+  type WakeWordStatus,
+} from "./platform/wakeword";
 
 type TranscriptEntry = {
   role: "user" | "assistant";
@@ -138,6 +143,7 @@ export function App() {
   const [reaperOscStatus, setReaperOscStatus] = useState<ReaperOscStatus | null>(null);
   const [reaperBridge, setReaperBridge] = useState<ReaperBridgeStatus | null>(null);
   const [flStudioBridge, setFlStudioBridge] = useState<DawBridgeStatus | null>(null);
+  const [wakeWordStatus, setWakeWordStatus] = useState<WakeWordStatus | null>(null);
   const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
   const [monitors, setMonitors] = useState<MonitorSnapshot[]>([]);
   const [serviceBusy, setServiceBusy] = useState(false);
@@ -296,6 +302,34 @@ export function App() {
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    const pollWakeWord = async () => {
+      try {
+        const status = await getWakeWordStatus();
+        if (!disposed) setWakeWordStatus(status);
+
+        if (!preferences.wakeWordEnabled || !status.available) return;
+        const event = await consumeWakeWordEvent();
+        if (!disposed && event) {
+          runtime.setState("AWAKE");
+          runtime.notify("Wake phrase detected · " + event.phrase);
+        }
+      } catch {
+        // Wake word is an optional local companion.
+      }
+    };
+
+    pollWakeWord();
+    const timer = window.setInterval(pollWakeWord, 350);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [preferences.wakeWordEnabled, runtime]);
 
   useEffect(() => {
     if (!foreground || panelOpen) return;
@@ -966,6 +1000,20 @@ export function App() {
               >
                 FL LIVE
               </span>
+              <span
+                className={
+                  preferences.wakeWordEnabled && wakeWordStatus?.available
+                    ? "service-on"
+                    : "service-off"
+                }
+                title={
+                  wakeWordStatus?.available
+                    ? "Local wake phrase · " + (wakeWordStatus.phrase ?? "AERA")
+                    : wakeWordStatus?.error ?? "Wake-word service disconnected"
+                }
+              >
+                WAKE
+              </span>
               <button
                 type="button"
                 className="refresh-button"
@@ -1174,7 +1222,28 @@ export function App() {
                 }
               />
             </label>
+
+            <label className="toggle-row">
+              <span>Wake word</span>
+              <input
+                type="checkbox"
+                checked={preferences.wakeWordEnabled}
+                onChange={(event) =>
+                  patchPreferences({ wakeWordEnabled: event.target.checked })
+                }
+              />
+            </label>
           </div>
+
+          {preferences.wakeWordEnabled && !wakeWordStatus?.available && (
+            <div className="setup-strip">
+              <span>WAKE WORD</span>
+              <small>
+                Start the local sherpa-onnx companion with your licensed KWS model.
+                AERA does not bundle model weights.
+              </small>
+            </div>
+          )}
 
           <section className="appearance-card" aria-label="AERA appearance">
             <div className="appearance-copy">

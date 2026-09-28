@@ -30,6 +30,7 @@ export interface AeraPreferences {
   orbPalette: OrbPalette;
   orbSize: OrbSizePreference;
   spatialBehavior: SpatialBehavior;
+  wakeWordEnabled: boolean;
 }
 
 const STORAGE_KEY = "aera.preferences.v1";
@@ -46,6 +47,7 @@ export const DEFAULT_PREFERENCES: AeraPreferences = {
   orbPalette: DEFAULT_ORB_PALETTE,
   orbSize: "standard",
   spatialBehavior: "adaptive",
+  wakeWordEnabled: false,
 };
 
 export function loadPreferences(): AeraPreferences {
@@ -86,6 +88,10 @@ export function loadPreferences(): AeraPreferences {
       )
         ? (parsed.spatialBehavior as SpatialBehavior)
         : DEFAULT_PREFERENCES.spatialBehavior,
+      wakeWordEnabled:
+        typeof parsed.wakeWordEnabled === "boolean"
+          ? parsed.wakeWordEnabled
+          : DEFAULT_PREFERENCES.wakeWordEnabled,
     };
   } catch {
     return DEFAULT_PREFERENCES;

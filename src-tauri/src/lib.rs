@@ -6,6 +6,7 @@ mod position;
 mod reaper_osc;
 mod reaper_state;
 mod speech;
+mod wakeword;
 
 use local_ai::{LocalChatRequest, LocalChatResponse, LocalProviderStatus};
 use serde::Serialize;
@@ -229,6 +230,16 @@ fn install_fl_studio_bridge() -> Result<daw_bridge::DawBridgeInstallResult, Stri
     daw_bridge::install_fl_studio_bridge()
 }
 
+#[tauri::command]
+fn wake_word_status() -> wakeword::WakeWordStatus {
+    wakeword::status()
+}
+
+#[tauri::command]
+fn consume_wake_word_event() -> Result<Option<wakeword::WakeWordEvent>, String> {
+    wakeword::consume_event()
+}
+
 #[cfg(target_os = "macos")]
 fn summon_shortcut() -> Shortcut {
     Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space)
@@ -299,6 +310,8 @@ pub fn run() {
             fl_studio_bridge_status,
             fl_studio_command,
             install_fl_studio_bridge,
+            wake_word_status,
+            consume_wake_word_event,
             foreground_window_snapshot,
             request_foreground_permission
         ])
