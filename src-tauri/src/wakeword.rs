@@ -100,8 +100,10 @@ pub fn status() -> WakeWordStatus {
                 stale: false,
                 age_ms: None,
                 engine: None,
+                service_version: None,
                 phrase: None,
                 sample_rate: None,
+                cooldown_ms: None,
                 error: Some(error),
             }
         }
