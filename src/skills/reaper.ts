@@ -1,5 +1,6 @@
 import { openKnownApp } from "../platform/apps";
 import { runReaperTransport } from "../platform/reaperOsc";
+import { verifyReaperTransport } from "../platform/reaperState";
 import type { ProposedAction } from "../core/permissions";
 import type { Skill, SkillContext } from "../core/skills";
 
@@ -20,7 +21,7 @@ const TRANSPORT = new Map<string, "play" | "stop" | "pause">([
 export const reaperSkill: Skill = {
   id: "reaper",
   name: "REAPER",
-  version: "0.3.0",
+  version: "0.4.1",
   capabilities: ["software.open", ...TRANSPORT.keys()],
   plannerActions: [
     {
@@ -103,6 +104,21 @@ export const reaperSkill: Skill = {
     }
 
     await runReaperTransport(transport);
-    return { appId: "reaper", transport };
+    const verification = await verifyReaperTransport(transport);
+    return {
+      appId: "reaper",
+      transport,
+      bridgeConnected: verification.connected,
+      verified: verification.verified,
+      observedTransport: verification.state
+        ? verification.state.recording
+          ? "recording"
+          : verification.state.paused
+            ? "paused"
+            : verification.state.playing
+              ? "playing"
+              : "stopped"
+        : null,
+    };
   },
 };
