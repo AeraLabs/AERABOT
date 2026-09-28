@@ -2,6 +2,19 @@ export type GraphicsQuality = "auto" | "ultra" | "high" | "balanced" | "efficien
 export type MotionPreference = "system" | "reduce" | "full";
 export type AiProviderPreference = "auto" | "ollama" | "llamacpp" | "openai_local";
 export type TalkBackPreference = "auto" | "text" | "voice";
+export type PresenceStyle = "serene" | "balanced" | "expressive";
+
+export interface OrbPalette {
+  primary: string;
+  secondary: string;
+  accent: string;
+}
+
+export const DEFAULT_ORB_PALETTE: OrbPalette = {
+  primary: "#eefcff",
+  secondary: "#7ff0d2",
+  accent: "#65aaff",
+};
 
 export interface AeraPreferences {
   muted: boolean;
@@ -11,6 +24,8 @@ export interface AeraPreferences {
   aiModel: string;
   talkBack: TalkBackPreference;
   spatialAwareness: boolean;
+  presenceStyle: PresenceStyle;
+  orbPalette: OrbPalette;
 }
 
 const STORAGE_KEY = "aera.preferences.v1";
@@ -23,6 +38,8 @@ export const DEFAULT_PREFERENCES: AeraPreferences = {
   aiModel: "",
   talkBack: "auto",
   spatialAwareness: true,
+  presenceStyle: "balanced",
+  orbPalette: DEFAULT_ORB_PALETTE,
 };
 
 export function loadPreferences(): AeraPreferences {
@@ -49,10 +66,36 @@ export function loadPreferences(): AeraPreferences {
         typeof parsed.spatialAwareness === "boolean"
           ? parsed.spatialAwareness
           : DEFAULT_PREFERENCES.spatialAwareness,
+      presenceStyle: ["serene", "balanced", "expressive"].includes(
+        parsed.presenceStyle ?? "",
+      )
+        ? (parsed.presenceStyle as PresenceStyle)
+        : DEFAULT_PREFERENCES.presenceStyle,
+      orbPalette: sanitizeOrbPalette(parsed.orbPalette),
     };
   } catch {
     return DEFAULT_PREFERENCES;
   }
+}
+
+function validHex(value: unknown): value is string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+}
+
+export function sanitizeOrbPalette(value: unknown): OrbPalette {
+  if (!value || typeof value !== "object") return DEFAULT_ORB_PALETTE;
+  const candidate = value as Partial<OrbPalette>;
+  return {
+    primary: validHex(candidate.primary)
+      ? candidate.primary.toLowerCase()
+      : DEFAULT_ORB_PALETTE.primary,
+    secondary: validHex(candidate.secondary)
+      ? candidate.secondary.toLowerCase()
+      : DEFAULT_ORB_PALETTE.secondary,
+    accent: validHex(candidate.accent)
+      ? candidate.accent.toLowerCase()
+      : DEFAULT_ORB_PALETTE.accent,
+  };
 }
 
 export function savePreferences(preferences: AeraPreferences) {

@@ -1,23 +1,33 @@
 import { listen } from "@tauri-apps/api/event";
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { probeLocalAI, resolveProvider, type ChatMessage, type LocalProviderStatus } from "./ai/local";
 import { planWithLocalModel } from "./ai/planner";
 import { playEarcon, unlockAudio } from "./audio/earcons";
 import { playWavBytes, probeLocalSpeech, synthesizeSpeech, transcribeAudio, type SpeechStatus } from "./audio/localSpeech";
 import { startPcmRecorder, type PcmRecorder } from "./audio/recorder";
 import {
+  DEFAULT_ORB_PALETTE,
   loadPreferences,
   savePreferences,
   type AeraPreferences,
   type AiProviderPreference,
   type GraphicsQuality,
   type MotionPreference,
+  type PresenceStyle,
   type TalkBackPreference,
 } from "./core/preferences";
 import { parseDirectIntent } from "./core/directIntent";
 import { answerVerifiedReaperQuery } from "./core/reaperQueries";
 import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
 import { OrbScene } from "./orb/OrbScene";
+import { paletteCssVariables } from "./orb/palette";
 import { quantizedWindowKey } from "./orb/spatial";
 import { visualFor, type OrbState } from "./orb/state";
 import { getKnownAppStatus, type KnownAppStatus } from "./platform/apps";
@@ -314,12 +324,33 @@ export function App() {
   }, [activeProvider, availableModels, preferences.aiModel]);
 
   useEffect(() => {
-    const diameter = panelOpen ? 520 : visualFor(state).nativeDiameter + 64;
+    const diameter = panelOpen ? 552 : visualFor(state).nativeDiameter + 64;
     resizeOrbHost(diameter).catch(() => undefined);
   }, [panelOpen, state]);
 
   const patchPreferences = (patch: Partial<AeraPreferences>) => {
     setPreferences((current) => ({ ...current, ...patch }));
+  };
+
+  const patchOrbColor = (
+    key: "primary" | "secondary" | "accent",
+    value: string,
+  ) => {
+    setPreferences((current) => ({
+      ...current,
+      orbPalette: {
+        ...current.orbPalette,
+        [key]: value,
+      },
+    }));
+  };
+
+  const resetOrbAppearance = () => {
+    setPreferences((current) => ({
+      ...current,
+      orbPalette: DEFAULT_ORB_PALETTE,
+      presenceStyle: "balanced",
+    }));
   };
 
   const activate = async () => {
@@ -641,6 +672,7 @@ export function App() {
     <main
       className={"aera-root" + (panelOpen ? " panel-open" : "")}
       data-state={state.toLowerCase()}
+      style={paletteCssVariables(preferences.orbPalette) as CSSProperties}
     >
       <button
         className="orb-hit-area"
@@ -662,6 +694,8 @@ export function App() {
           state={state}
           reducedMotion={reducedMotion}
           quality={preferences.quality}
+          palette={preferences.orbPalette}
+          presence={preferences.presenceStyle}
         />
         <span className="orb-aura" />
       </button>
@@ -950,6 +984,61 @@ export function App() {
               />
             </label>
           </div>
+
+          <section className="appearance-card" aria-label="AERA appearance">
+            <div className="appearance-copy">
+              <span>PERSONALITY LIGHT</span>
+              <strong>Your three-color AERA</strong>
+              <small>
+                These colors drive the orb’s energy, waveform, particles, lights,
+                and glass aura in real time.
+              </small>
+            </div>
+
+            <div className="color-wheel-row">
+              {(
+                [
+                  ["primary", "Core"],
+                  ["secondary", "Energy"],
+                  ["accent", "Accent"],
+                ] as const
+              ).map(([key, label]) => (
+                <label className="color-wheel" key={key}>
+                  <input
+                    type="color"
+                    value={preferences.orbPalette[key]}
+                    onChange={(event) =>
+                      patchOrbColor(key, event.target.value)
+                    }
+                    aria-label={"AERA " + label + " color"}
+                  />
+                  <span>{label}</span>
+                  <small>{preferences.orbPalette[key]}</small>
+                </label>
+              ))}
+            </div>
+
+            <div className="presence-row">
+              <label>
+                <span>Presence</span>
+                <select
+                  value={preferences.presenceStyle}
+                  onChange={(event) =>
+                    patchPreferences({
+                      presenceStyle: event.target.value as PresenceStyle,
+                    })
+                  }
+                >
+                  <option value="serene">Serene</option>
+                  <option value="balanced">Balanced</option>
+                  <option value="expressive">Expressive</option>
+                </select>
+              </label>
+              <button type="button" onClick={resetOrbAppearance}>
+                Reset look
+              </button>
+            </div>
+          </section>
 
           <footer className="panel-footer">
             <span>{message}</span>
