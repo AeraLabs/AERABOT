@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { SkillManager } from "./components/SkillManager";
 import {
   type CSSProperties,
   type FormEvent,
@@ -137,6 +138,9 @@ export function App() {
   const [message, setMessage] = useState("AERA ambient");
   const [profile, setProfile] = useState<SystemProfile | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [skillManagerOpen, setSkillManagerOpen] = useState(
+    () => !loadPreferences().onboardingComplete,
+  );
   const [command, setCommand] = useState("");
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
@@ -1049,7 +1053,37 @@ export function App() {
         <span className="orb-aura" />
       </button>
 
-      {panelOpen && (
+      {skillManagerOpen && (
+        <SkillManager
+          providers={providers}
+          speech={speechStatus}
+          daws={dawStatuses}
+          reaperBridge={reaperBridge}
+          flStudioBridge={flStudioBridge}
+          abletonBridge={abletonBridge}
+          logicBridge={logicBridge}
+          proToolsBridge={proToolsBridge}
+          wakeWord={wakeWordStatus}
+          foreground={foreground}
+          busy={serviceBusy}
+          onRefresh={() => refreshLocalServices()}
+          onWindowPermission={enableWindowAwareness}
+          onInstallReaper={installReaperCompanion}
+          onInstallFlStudio={installFlStudioCompanion}
+          onPrepareAbleton={prepareAbletonCompanion}
+          onInstallLogic={installLogicCompanion}
+          onInstallProTools={installProToolsCompanion}
+          onInstallWakeWord={installWakeWordLocalCompanion}
+          onComplete={() => {
+            patchPreferences({ onboardingComplete: true });
+            setSkillManagerOpen(false);
+            setPanelOpen(true);
+          }}
+          onClose={() => setSkillManagerOpen(false)}
+        />
+      )}
+
+      {panelOpen && !skillManagerOpen && (
         <section className="control-panel" aria-label="AERA controls">
           <header className="panel-header">
             <div className="aera-wordmark">
@@ -1204,6 +1238,13 @@ export function App() {
               >
                 WAKE
               </span>
+              <button
+                type="button"
+                className="setup-button"
+                onClick={() => setSkillManagerOpen(true)}
+              >
+                SETUP
+              </button>
               <button
                 type="button"
                 className="refresh-button"
