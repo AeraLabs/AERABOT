@@ -19,8 +19,8 @@
         "height": 192,
         "minWidth": 72,
         "minHeight": 72,
-        "maxWidth": 420,
-        "maxHeight": 420,
+        "maxWidth": 560,
+        "maxHeight": 560,
         "center": true,
         "resizable": false,
         "fullscreen": false,
@@ -33,7 +33,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self';"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self';"
     }
   },
   "bundle": {
