@@ -19,7 +19,9 @@ export class AeraRuntime {
 
   subscribe(listener: Listener) {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   setState(state: OrbState) {
@@ -52,12 +54,14 @@ export class AeraRuntime {
       this.emit({ type: "action-rejected", action });
       return { ok: false, needsConfirmation: true as const };
     }
+
     const skill = this.skills.findFor(action.capability);
     if (!skill) {
       this.setState("ERROR");
       this.journal.record(action, "rejected");
       return { ok: false, error: "No installed Skill provides this capability." };
     }
+
     this.setState("ACTING");
     try {
       const result = await skill.execute(action);

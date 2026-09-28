@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AERA Orb",
+  "version": "0.1.0",
+  "identifier": "com.aeralabs.aeraorb",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "orb",
+        "title": "AERA Orb",
+        "width": 192,
+        "height": 192,
+        "minWidth": 72,
+        "minHeight": 72,
+        "maxWidth": 420,
+        "maxHeight": 420,
+        "center": true,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self';"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Productivity",
+    "shortDescription": "AERA local-first desktop AI companion",
+    "longDescription": "AERA is a local-first spatial desktop companion and software control layer."
+  }
+}
