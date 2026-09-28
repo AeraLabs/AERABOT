@@ -121,3 +121,45 @@ export async function installReaperBridge(): Promise<ReaperBridgeInstallResult> 
   }
   return invoke<ReaperBridgeInstallResult>("install_reaper_bridge");
 }
+
+
+export type ReaperTransportAction = "play" | "stop" | "pause";
+
+export interface ReaperTransportVerification {
+  connected: boolean;
+  verified: boolean;
+  state: ReaperProjectState | null;
+}
+
+function transportMatches(
+  action: ReaperTransportAction,
+  state: ReaperProjectState,
+) {
+  if (action === "play") return state.playing && !state.paused;
+  if (action === "pause") return state.paused;
+  return !state.playing && !state.paused && !state.recording;
+}
+
+export async function verifyReaperTransport(
+  action: ReaperTransportAction,
+  timeoutMs = 1200,
+): Promise<ReaperTransportVerification> {
+  const deadline = Date.now() + timeoutMs;
+  let connected = false;
+  let lastState: ReaperProjectState | null = null;
+
+  while (Date.now() <= deadline) {
+    const status = await getReaperState().catch(() => null);
+    if (status?.available && !status.stale && status.state) {
+      connected = true;
+      lastState = status.state;
+      if (transportMatches(action, status.state)) {
+        return { connected: true, verified: true, state: status.state };
+      }
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
+
+  return { connected, verified: false, state: lastState };
+}
