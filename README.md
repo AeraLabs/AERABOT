@@ -11,13 +11,56 @@ The product is intentionally divided into four boundaries:
 
 A model is never treated as proof that an action happened. Real computer actions must pass through an installed Skill and AERA Core.
 
-## Platforms
+## Current downloads
 
-- **macOS Apple Silicon** — `aarch64-apple-darwin`
-- **macOS Intel** — `x86_64-apple-darwin`, mandatory release target
-- **Windows 10/11** — `x86_64-pc-windows-msvc`
+**AERA Orb 0.1.0 · Build 85 · source `4c7ac0e` · September 28, 2026**
 
-GitHub Actions builds each target independently.
+All three binaries below were produced from the **same source commit** and passed the current GitHub Actions package build. These are development builds; signing, macOS notarization, and the production updater are not finished yet.
+
+| Platform | Architecture | Current build | Build verification |
+|---|---|---|---|
+| **macOS — Apple Silicon** | M1 / M2 / M3 / M4+ · `aarch64-apple-darwin` | **[Download Apple Silicon build](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760/artifacts/10996038510)** | ✅ CI typecheck/tests/build + native package |
+| **macOS — Intel** | Intel x86_64 · `x86_64-apple-darwin` | **[Download Intel Mac build](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760/artifacts/10996357517)** | ✅ CI typecheck/tests/build + native package |
+| **Windows 10/11** | x64 · `x86_64-pc-windows-msvc` | **[Download Windows x64 build](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760/artifacts/10997530068)** | ✅ CI typecheck/tests/build + native package |
+
+**Full build run:** [AERA Desktop Builds #85](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760)
+
+> GitHub Actions artifacts are ZIP downloads and currently expire on **December 27, 2026**. For a private repository, GitHub sign-in with repository access is required. A future signed release channel will replace these temporary artifact links.
+
+### Platform status — what works today
+
+Legend: **✅ working**, **◐ working with setup / partial backend**, **— not applicable**, **⏳ not finished**.
+
+| Capability | Apple Silicon macOS | Intel macOS | Windows x64 | Current reality |
+|---|:---:|:---:|:---:|---|
+| Native transparent AERA orb | ✅ | ✅ | ✅ | Frameless native host, realtime orb renderer, grow/shrink and desktop presence |
+| Multi-monitor + persistent position | ✅ | ✅ | ✅ | DPI-aware monitor enumeration and saved position |
+| Global summon | ✅ | ✅ | ✅ | **Cmd+Shift+Space** on macOS; **Ctrl+Shift+Space** on Windows |
+| Foreground application detection | ✅ | ✅ | ✅ | Native focused-app identity |
+| Focused-window geometry | ◐ | ◐ | ✅ | macOS requires explicit Accessibility permission; Windows uses native geometry |
+| Window-aware spatial movement | ◐ | ◐ | ✅ | Uses verified foreground geometry; macOS depends on Accessibility permission |
+| First-run Skill Manager | ✅ | ✅ | ✅ | Detects local AI, voice, wake word, window access and DAW bridge readiness |
+| Ollama / llama.cpp / local OpenAI-compatible AI | ✅ | ✅ | ✅ | Local-only adapters; the external local runtime/model must be installed and running |
+| whisper.cpp speech-to-text | ◐ | ◐ | ◐ | Works through the configured local whisper service |
+| Piper talk-back | ◐ | ◐ | ◐ | Works through the configured local Piper service; text/earcons remain available without it |
+| Wake phrase → listen → transcribe → action → reply | ◐ | ◐ | ◐ | End-to-end flow is wired; requires the local wake companion/model and whisper service |
+| REAPER Skill | ✅ | ✅ | ✅ | Verified project/transport/track state plus real control and undo-backed actions where supported |
+| FL Studio Skill | ◐ | ◐ | ◐ | Deep MIDI Scripting bridge exists; user still selects the AERA controller script in FL Studio |
+| Ableton Live Skill | ◐ | ◐ | ◐ | Live/Max-for-Live companion exists; Max-for-Live bridge setup is still required |
+| Logic Pro Skill | ◐ | ◐ | — | macOS-only OSC/controller-assignment bridge; controller setup is not fully automatic yet |
+| Pro Tools Skill | ◐ | ◐ | ◐ | AERA PTSL wrapper/contract exists; the Avid SDK helper still needs completion/build integration |
+| **WAVR first-party Skill** | ✅ | ✅ | ✅ | Native AeraLabs bridge with verified project/transport/full-track state, pause/seek/tempo, track selection, mute/solo/arm, volume/pan, FX inspection and undo where prior state is captured |
+| Opt-in screen / visual context | ⏳ | ⏳ | ⏳ | Not shipped in the current binaries |
+| Signed installers | ⏳ | ⏳ | ⏳ | Current artifacts are development packages |
+| macOS notarization | ⏳ | ⏳ | — | Not finished |
+| Automatic updater | ⏳ | ⏳ | ⏳ | Architecture-aware production update channel not finished |
+| Long-session / hardware soak certification | ⏳ | ⏳ | ⏳ | CI package success is **not** being presented as a physical-machine soak test |
+
+### Verification level
+
+The current build is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, and package successfully.
+
+It does **not** yet mean every build has completed a long-duration launch/audio/DAW test on physical hardware. In particular, **Intel Mac remains a mandatory target**, but the current README intentionally distinguishes successful Intel packaging from a real Intel-hardware soak test.
 
 ## What AERA can do now
 
@@ -85,7 +128,7 @@ The generic OpenAI-compatible adapter is intentionally restricted to `127.0.0.1`
 
 ### Real Skill execution
 
-The reference software Skill is **REAPER**, and the core DAW set now also includes **FL Studio, Pro Tools, Logic Pro, and Ableton Live**.
+The reference external software Skill is **REAPER**. The core third-party DAW set also includes **FL Studio, Pro Tools, Logic Pro, and Ableton Live**, while **WAVR is now the deepest first-party AERA Skill** because AeraLabs controls both ends of the bridge.
 
 Implemented:
 
@@ -105,6 +148,9 @@ Implemented:
 - Logic Pro deep-control Skill plus verified loopback OSC companion
 - Pro Tools deep-control Skill plus an Avid SDK-helper wrapper contract
 - optional local wake-word companion with cooldown/deduplicated events
+- first-run Skill Manager with verified readiness states rather than simple installed/not-installed flags
+- unified wake phrase → listening → local transcription → response/action → talk-back flow
+- first-party WAVR bridge with verified full-track/project context, transport, seek, tempo, track selection, mixer controls, FX inspection, and reversible state capture where available
 - journal executed actions
 
 The local model proposes semantic actions. The Skill validates the target and input. AERA Core owns execution.
@@ -136,13 +182,13 @@ The local model proposes semantic actions. The Skill validates the target and in
                     │
           ┌─────────▼─────────┐
           │ validated Skill   │
-          │ REAPER / future   │
+          │ REAPER / WAVR /…  │
           └─────────┬─────────┘
                     │
              native backend
 ```
 
-Skills publish a planner capability catalog. The model only sees the semantic operations that installed Skills advertise. Future WAVR, Ableton, Unreal, Blender, and other integrations can therefore extend AERA without hardcoding their operations into the core planner.
+Skills publish a planner capability catalog. The model only sees the semantic operations that installed Skills advertise. WAVR, Ableton, and the other current DAW integrations extend AERA through the same Skill boundary; future Unreal, Blender, and other integrations can do the same without hardcoding their operations into the core planner.
 
 ## Interaction
 
@@ -158,7 +204,7 @@ Skills publish a planner capability catalog. The model only sees the semantic op
 | DND | minimal presence |
 | Sleep | tiny low-energy depth state |
 
-The attached control surface shows local **AI / MIC / VOICE / REAPER / OSC** health, installed models, rendering preferences, talk-back settings, conversation history, and runtime architecture.
+The attached control surface shows local **AI / MIC / VOICE / DAW / WAKE** health, installed models, rendering preferences, talk-back settings, conversation history, runtime architecture, and a reopenable **SETUP** entry for the first-run Skill Manager.
 
 ## Quick start
 
@@ -245,13 +291,14 @@ Destructive future operations must require confirmation. Reversible operations s
 These are still future work:
 
 - bundled/licensed wake-word model distribution
-- screen/application visual inspection
+- opt-in screen/application visual inspection
 - automatic generation/building of Avid Pro Tools SDK helper artifacts
 - automatic Logic Controller Assignment provisioning
-- WAVR first-party Skill
+- full capability parity across every third-party DAW
 - Unreal/Blender Skills
 - architecture-aware updater
 - release signing and macOS notarization
+- physical Intel Mac / Apple Silicon / Windows long-session soak certification
 
 Capabilities are added to this list only when they have a real backend.
 
