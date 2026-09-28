@@ -2,6 +2,7 @@ export type RiskClass = "safe" | "reversible" | "destructive";
 
 export interface ProposedAction {
   id: string;
+  skillId: string;
   capability: string;
   description: string;
   risk: RiskClass;
@@ -15,7 +16,8 @@ export interface JournalEntry extends ProposedAction {
   status: "executed" | "rejected" | "undone";
 }
 
-export const requiresConfirmation = (action: ProposedAction) => action.risk === "destructive";
+export const requiresConfirmation = (action: ProposedAction) =>
+  action.risk === "destructive";
 
 export class ActionJournal {
   private entries: JournalEntry[] = [];

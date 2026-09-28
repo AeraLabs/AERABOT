@@ -188,10 +188,11 @@ export function App() {
 
     const directIntent = parseDirectIntent(clean);
     if (directIntent) {
-      const skill = runtime.skills.findFor(directIntent.capability);
-      const action = skill
-        ? await skill.propose(directIntent.capability, directIntent.input)
-        : null;
+      const proposal = await runtime.skills.propose(
+        directIntent.capability,
+        directIntent.input,
+      );
+      const action = proposal?.action ?? null;
 
       if (!action) {
         const reply = "That command is not available through an installed AERA Skill.";
@@ -259,8 +260,8 @@ export function App() {
       let reply = plan.message;
 
       if (plan.kind === "action") {
-        const skill = runtime.skills.findFor(plan.capability);
-        const action = skill ? await skill.propose(plan.capability, plan.input) : null;
+        const proposal = await runtime.skills.propose(plan.capability, plan.input);
+        const action = proposal?.action ?? null;
 
         if (!action) {
           reply = "That action is not available through an installed AERA Skill.";

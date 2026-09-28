@@ -1,4 +1,9 @@
-import { localChat, type ChatMessage, type LocalChatRequest, type LocalChatResponse } from "./local";
+import {
+  localChat,
+  type ChatMessage,
+  type LocalChatRequest,
+  type LocalChatResponse,
+} from "./local";
 import { AERA_SYSTEM_PROMPT } from "./prompt";
 import type { PlannerActionDescriptor } from "../core/skills";
 
@@ -23,9 +28,11 @@ function buildActionProtocol(actions: PlannerActionDescriptor[]) {
       : actions
           .map(
             (action) =>
-              "- " +
+              "- Skill: " +
+              (action.skillName ?? action.skillId ?? "unknown") +
+              "\n  capability: " +
               action.capability +
-              ": " +
+              "\n  purpose: " +
               action.description +
               "\n  input example: " +
               JSON.stringify(action.inputExample),
@@ -49,11 +56,12 @@ For an action, use:
 Rules:
 - Use an action only when the user clearly requests it.
 - Never invent a capability not listed above.
+- Choose the target application using the advertised input example.
 - Treat input examples as the permitted shape; do not add unrelated fields.
 - Never put file paths, shell commands, executable names, URLs, scripts, keyboard shortcuts, OSC addresses, or code in input unless a future Skill explicitly advertises such a field.
 - Questions about software are replies, not actions.
 - If you are unsure, use kind=reply.
-- The runtime and Skill independently validate the request and decide whether it actually executes.
+- The runtime and target Skill independently validate the request and decide whether it actually executes.
 `.trim();
 }
 
@@ -75,11 +83,17 @@ export function parsePlan(
   try {
     parsed = JSON.parse(stripFence(text));
   } catch {
-    return { kind: "reply", message: text.trim() || "I couldn't form a response." };
+    return {
+      kind: "reply",
+      message: text.trim() || "I couldn't form a response.",
+    };
   }
 
   if (!parsed || typeof parsed !== "object") {
-    return { kind: "reply", message: text.trim() || "I couldn't form a response." };
+    return {
+      kind: "reply",
+      message: text.trim() || "I couldn't form a response.",
+    };
   }
 
   const candidate = parsed as Record<string, unknown>;
@@ -88,7 +102,9 @@ export function parsePlan(
     const capability =
       typeof candidate.capability === "string" ? candidate.capability : "";
     const input =
-      candidate.input && typeof candidate.input === "object" && !Array.isArray(candidate.input)
+      candidate.input &&
+      typeof candidate.input === "object" &&
+      !Array.isArray(candidate.input)
         ? (candidate.input as Record<string, unknown>)
         : null;
 
@@ -110,7 +126,8 @@ export function parsePlan(
 
     return {
       kind: "reply",
-      message: "That desktop action is not available through an installed AERA Skill yet.",
+      message:
+        "That desktop action is not available through an installed AERA Skill yet.",
     };
   }
 
@@ -118,7 +135,10 @@ export function parsePlan(
     return { kind: "reply", message: candidate.message.trim() };
   }
 
-  return { kind: "reply", message: text.trim() || "I couldn't form a response." };
+  return {
+    kind: "reply",
+    message: text.trim() || "I couldn't form a response.",
+  };
 }
 
 export async function planWithLocalModel(
@@ -131,11 +151,15 @@ export async function planWithLocalModel(
     messages: [
       {
         role: "system",
-        content: AERA_SYSTEM_PROMPT + "\n\n" + buildActionProtocol(allowedActions),
+        content:
+          AERA_SYSTEM_PROMPT + "\n\n" + buildActionProtocol(allowedActions),
       },
       ...request.messages,
     ],
   });
 
-  return { plan: parsePlan(response.content, allowedActions), response };
+  return {
+    plan: parsePlan(response.content, allowedActions),
+    response,
+  };
 }

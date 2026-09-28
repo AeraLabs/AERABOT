@@ -1,5 +1,9 @@
 import type { OrbState } from "../orb/state";
-import { ActionJournal, requiresConfirmation, type ProposedAction } from "./permissions";
+import {
+  ActionJournal,
+  requiresConfirmation,
+  type ProposedAction,
+} from "./permissions";
 import { SkillBus } from "./skills";
 
 export type RuntimeEvent =
@@ -66,11 +70,15 @@ export class AeraRuntime {
       return { ok: false, needsConfirmation: true as const };
     }
 
-    const skill = this.skills.findFor(action.capability);
-    if (!skill) {
+    const skill = this.skills.get(action.skillId);
+    if (!skill || !skill.capabilities.includes(action.capability)) {
       this.setState("ERROR");
       this.journal.record(action, "rejected");
-      return { ok: false, error: "No installed Skill provides this capability." };
+      return {
+        ok: false,
+        error:
+          "The addressed Skill is not installed or does not provide this capability.",
+      };
     }
 
     this.setState("ACTING");
@@ -83,7 +91,10 @@ export class AeraRuntime {
     } catch (error) {
       this.setState("ERROR");
       this.journal.record(action, "rejected");
-      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 

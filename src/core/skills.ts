@@ -9,6 +9,8 @@ export interface PlannerActionDescriptor {
   capability: string;
   description: string;
   inputExample: Record<string, unknown>;
+  skillId?: string;
+  skillName?: string;
 }
 
 export interface Skill {
@@ -23,11 +25,20 @@ export interface Skill {
   undo?(action: ProposedAction): Promise<void>;
 }
 
+export interface SkillProposal {
+  skill: Skill;
+  action: ProposedAction;
+}
+
 export class SkillBus {
   private skills = new Map<string, Skill>();
 
   register(skill: Skill) {
     this.skills.set(skill.id, skill);
+  }
+
+  get(skillId: string) {
+    return this.skills.get(skillId);
   }
 
   list() {
@@ -43,21 +54,48 @@ export class SkillBus {
   }
 
   plannerCatalog(): PlannerActionDescriptor[] {
-    const catalog = new Map<string, PlannerActionDescriptor>();
+    const catalog: PlannerActionDescriptor[] = [];
 
     for (const skill of this.skills.values()) {
       for (const action of skill.plannerActions ?? []) {
         if (!skill.capabilities.includes(action.capability)) continue;
-        if (!catalog.has(action.capability)) catalog.set(action.capability, action);
+        catalog.push({
+          ...action,
+          skillId: skill.id,
+          skillName: skill.name,
+        });
       }
     }
 
-    return [...catalog.values()];
+    return catalog;
   }
 
-  findFor(capability: string) {
-    return [...this.skills.values()].find((skill) =>
-      skill.capabilities.includes(capability),
-    );
+  async propose(capability: string, input?: unknown): Promise<SkillProposal | null> {
+    for (const skill of this.skills.values()) {
+      if (!skill.capabilities.includes(capability)) continue;
+
+      const action = await skill.propose(capability, input);
+      if (!action) continue;
+
+      if (action.skillId !== skill.id) {
+        throw new Error(
+          "Skill " +
+            skill.id +
+            " proposed an action addressed to " +
+            action.skillId +
+            ".",
+        );
+      }
+
+      if (action.capability !== capability) {
+        throw new Error(
+          "Skill " + skill.id + " changed the requested capability during proposal.",
+        );
+      }
+
+      return { skill, action };
+    }
+
+    return null;
   }
 }

@@ -20,12 +20,13 @@ const TRANSPORT = new Map<string, "play" | "stop" | "pause">([
 export const reaperSkill: Skill = {
   id: "reaper",
   name: "REAPER",
-  version: "0.2.0",
+  version: "0.3.0",
   capabilities: ["software.open", ...TRANSPORT.keys()],
   plannerActions: [
     {
       capability: "software.open",
-      description: "Open or launch REAPER when the user explicitly asks to open REAPER.",
+      description:
+        "Open or launch REAPER when the user explicitly asks to open REAPER.",
       inputExample: { appId: "reaper" },
     },
     {
@@ -49,13 +50,17 @@ export const reaperSkill: Skill = {
     return context.platform === "macOS" || context.platform === "Windows";
   },
 
-  async propose(capability: string, input?: unknown): Promise<ProposedAction | null> {
+  async propose(
+    capability: string,
+    input?: unknown,
+  ): Promise<ProposedAction | null> {
     const candidate = (input ?? {}) as ReaperInput;
     if (candidate.appId !== "reaper") return null;
 
     if (capability === "software.open") {
       return {
         id: actionId(capability),
+        skillId: "reaper",
         capability,
         description: "Open REAPER",
         risk: "safe",
@@ -68,14 +73,20 @@ export const reaperSkill: Skill = {
 
     return {
       id: actionId(capability),
+      skillId: "reaper",
       capability,
-      description: transport[0].toUpperCase() + transport.slice(1) + " REAPER transport",
+      description:
+        transport[0].toUpperCase() + transport.slice(1) + " REAPER transport",
       risk: "safe",
       input: { appId: "reaper" },
     };
   },
 
   async execute(action: ProposedAction) {
+    if (action.skillId !== "reaper") {
+      throw new Error("REAPER Skill received an action for another Skill.");
+    }
+
     const input = (action.input ?? {}) as ReaperInput;
     if (input.appId !== "reaper") {
       throw new Error("REAPER Skill rejected an invalid application target.");
