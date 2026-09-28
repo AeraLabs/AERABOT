@@ -30,25 +30,36 @@ export class AeraRuntime {
     this.emit({ type: "state", state });
   }
 
-  async runInternalCommand(command: string) {
+  notify(message: string) {
+    this.emit({ type: "message", message });
+  }
+
+  async runInternalCommand(command: string): Promise<boolean> {
     const normalized = command.trim().toLowerCase();
-    if (!normalized) return;
+    if (!normalized) return false;
+
     const stateCommands: Record<string, OrbState> = {
-      wake: "AWAKE", listen: "LISTENING", think: "THINKING", studio: "STUDIO",
-      sleep: "SLEEPING", ambient: "AMBIENT", dnd: "DND", focus: "AWAKE",
+      wake: "AWAKE",
+      listen: "LISTENING",
+      think: "THINKING",
+      studio: "STUDIO",
+      sleep: "SLEEPING",
+      ambient: "AMBIENT",
+      dnd: "DND",
+      focus: "AWAKE",
     };
+
     const next = stateCommands[normalized];
-    if (next) {
-      this.setState(next);
-      this.emit({ type: "message", message: "AERA state: " + next.toLowerCase() });
-      return;
-    }
-    this.setState("QUESTION");
-    this.emit({ type: "message", message: "That command is not connected to a Skill yet. AERA will not fake software control." });
+    if (!next) return false;
+
+    this.setState(next);
+    this.emit({ type: "message", message: "AERA state: " + next.toLowerCase() });
+    return true;
   }
 
   async execute(action: ProposedAction, confirmed = false) {
     this.emit({ type: "action-proposed", action });
+
     if (requiresConfirmation(action) && !confirmed) {
       this.setState("QUESTION");
       this.emit({ type: "action-rejected", action });
