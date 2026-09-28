@@ -1,5 +1,6 @@
 mod desktop_apps;
 mod local_ai;
+mod position;
 mod reaper_osc;
 mod speech;
 
@@ -198,7 +199,16 @@ pub fn run() {
         .setup(|app| {
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             install_global_shortcut(app)?;
+
+            if let Some(window) = app.get_webview_window("orb") {
+                let _ = position::restore(&window);
+            }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Moved(position) = event {
+                let _ = position::save(window.app_handle(), *position);
+            }
         })
         .invoke_handler(tauri::generate_handler![
             system_profile,

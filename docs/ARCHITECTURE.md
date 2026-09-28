@@ -62,3 +62,10 @@ Intentionally not faked yet:
 - focused-window geometry
 - DAW Skills
 - screen inspection
+
+
+## Desktop position persistence
+
+The native host stores the orb's last physical desktop coordinates in AERA's application config directory. On startup the saved coordinates are restored only when they still land on a currently connected display. If the monitor has been disconnected or the topology has changed, AERA leaves Tauri's safe startup placement intact rather than restoring itself off-screen.
+
+Position persistence uses physical pixels so mixed-DPI and Retina/non-Retina monitor arrangements do not lose coordinate precision during native dragging.
