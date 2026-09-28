@@ -67,9 +67,12 @@ import {
   planSpatialTarget,
 } from "./platform/spatialAwareness";
 import {
+  dawModelContext,
   flStudioModelContext,
+  getDawBridgeStatus,
   getFlStudioBridgeStatus,
   installFlStudioBridge,
+  prepareDawBridge,
   type DawBridgeStatus,
 } from "./platform/dawBridge";
 import { getReaperOscStatus, type ReaperOscStatus } from "./platform/reaperOsc";
@@ -81,10 +84,10 @@ import {
   type ReaperBridgeStatus,
 } from "./platform/reaperState";
 import {
-  abletonSkill,
   logicSkill,
   proToolsSkill,
 } from "./skills/dawLaunch";
+import { abletonSkill } from "./skills/ableton";
 import { flStudioSkill } from "./skills/flstudio";
 import { reaperSkill } from "./skills/reaper";
 import {
@@ -143,6 +146,7 @@ export function App() {
   const [reaperOscStatus, setReaperOscStatus] = useState<ReaperOscStatus | null>(null);
   const [reaperBridge, setReaperBridge] = useState<ReaperBridgeStatus | null>(null);
   const [flStudioBridge, setFlStudioBridge] = useState<DawBridgeStatus | null>(null);
+  const [abletonBridge, setAbletonBridge] = useState<DawBridgeStatus | null>(null);
   const [wakeWordStatus, setWakeWordStatus] = useState<WakeWordStatus | null>(null);
   const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
   const [monitors, setMonitors] = useState<MonitorSnapshot[]>([]);
@@ -297,6 +301,27 @@ export function App() {
 
     pollFlStudio();
     const timer = window.setInterval(pollFlStudio, 650);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    const pollAbleton = async () => {
+      try {
+        const status = await getDawBridgeStatus("ableton");
+        if (!disposed) setAbletonBridge(status);
+      } catch {
+        // Ableton bridge is optional.
+      }
+    };
+
+    pollAbleton();
+    const timer = window.setInterval(pollAbleton, 650);
     return () => {
       disposed = true;
       window.clearInterval(timer);
@@ -506,6 +531,20 @@ export function App() {
       const reply = result.alreadyCurrent
         ? "The FL Studio AERA bridge is already installed. In FL Studio MIDI Settings, choose AERA Local Bridge as a Controller type."
         : "FL Studio bridge installed. In FL Studio MIDI Settings, choose AERA Local Bridge as a Controller type.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA setup · local");
+    } catch (error) {
+      const reply = error instanceof Error ? error.message : String(error);
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA setup");
+    }
+  };
+
+  const prepareAbletonCompanion = async () => {
+    try {
+      await prepareDawBridge("ableton");
+      const reply =
+        "Ableton bridge folders are ready. Add the bundled aera_live_bridge.js to a Max for Live device and connect live.thisdevice to the js object.";
       runtime.notify(reply);
       appendAssistant(reply, "AERA setup · local");
     } catch (error) {
@@ -752,6 +791,17 @@ export function App() {
                   {
                     role: "system" as const,
                     content: flStudioModelContext(flStudioBridge.state),
+                  },
+                ]
+              : []),
+            ...(foregroundDaw(foreground)?.id === "ableton" &&
+            abletonBridge?.available &&
+            !abletonBridge.stale &&
+            abletonBridge.state
+              ? [
+                  {
+                    role: "system" as const,
+                    content: dawModelContext("Ableton Live", abletonBridge.state),
                   },
                 ]
               : []),
@@ -1002,6 +1052,21 @@ export function App() {
               </span>
               <span
                 className={
+                  abletonBridge?.available && !abletonBridge.stale
+                    ? "service-on"
+                    : "service-off"
+                }
+                title={
+                  abletonBridge?.available && abletonBridge.state
+                    ? "Ableton bridge · " +
+                      (abletonBridge.state.projectName ?? "untitled")
+                    : abletonBridge?.error ?? "Ableton bridge disconnected"
+                }
+              >
+                AB LIVE
+              </span>
+              <span
+                className={
                   preferences.wakeWordEnabled && wakeWordStatus?.available
                     ? "service-on"
                     : "service-off"
@@ -1234,6 +1299,19 @@ export function App() {
               />
             </label>
           </div>
+
+          {dawStatuses.find((status) => status.id === "ableton")?.installed &&
+            (!abletonBridge?.available || abletonBridge.stale) && (
+              <div className="setup-strip">
+                <span>ABLETON BRIDGE</span>
+                <small>
+                  Prepare the local bridge, then load the bundled JavaScript in a Max for Live device.
+                </small>
+                <button type="button" onClick={prepareAbletonCompanion}>
+                  Prepare
+                </button>
+              </div>
+            )}
 
           {preferences.wakeWordEnabled && !wakeWordStatus?.available && (
             <div className="setup-strip">
