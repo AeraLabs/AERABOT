@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { localChat, probeLocalAI, resolveProvider, type ChatMessage, type LocalProviderStatus } from "./ai/local";
-import { AERA_SYSTEM_PROMPT } from "./ai/prompt";
+import { probeLocalAI, resolveProvider, type ChatMessage, type LocalProviderStatus } from "./ai/local";
+import { planWithLocalModel } from "./ai/planner";
 import { playEarcon, unlockAudio } from "./audio/earcons";
 import { playWavBytes, probeLocalSpeech, synthesizeSpeech, transcribeAudio, type SpeechStatus } from "./audio/localSpeech";
 import { startPcmRecorder, type PcmRecorder } from "./audio/recorder";
@@ -17,6 +17,7 @@ import {
 import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
 import { OrbScene } from "./orb/OrbScene";
 import { visualFor, type OrbState } from "./orb/state";
+import { getKnownAppStatus, type KnownAppStatus } from "./platform/apps";
 import {
   beginNativeDrag,
   getSystemProfile,
@@ -24,6 +25,7 @@ import {
   resizeOrbHost,
   type SystemProfile,
 } from "./platform/bridge";
+import { reaperSkill } from "./skills/reaper";
 
 type TranscriptEntry = {
   role: "user" | "assistant";
@@ -47,7 +49,11 @@ function shortModelName(model: string) {
 }
 
 export function App() {
-  const runtime = useMemo(() => new AeraRuntime(), []);
+  const runtime = useMemo(() => {
+    const instance = new AeraRuntime();
+    instance.skills.register(reaperSkill);
+    return instance;
+  }, []);
   const recorderRef = useRef<PcmRecorder | null>(null);
 
   const [state, setState] = useState<OrbState>(runtime.state);
@@ -59,6 +65,7 @@ export function App() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [providers, setProviders] = useState<LocalProviderStatus[]>([]);
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
+  const [reaperStatus, setReaperStatus] = useState<KnownAppStatus | null>(null);
   const [serviceBusy, setServiceBusy] = useState(false);
   const [systemReducedMotion, setSystemReducedMotion] = useState(systemPrefersReducedMotion);
   const [preferences, setPreferences] = useState<AeraPreferences>(loadPreferences);
@@ -76,13 +83,15 @@ export function App() {
 
   const refreshLocalServices = async () => {
     setServiceBusy(true);
-    const [aiResult, speechResult] = await Promise.allSettled([
+    const [aiResult, speechResult, reaperResult] = await Promise.allSettled([
       probeLocalAI(),
       probeLocalSpeech(),
+      getKnownAppStatus("reaper"),
     ]);
 
     if (aiResult.status === "fulfilled") setProviders(aiResult.value);
     if (speechResult.status === "fulfilled") setSpeechStatus(speechResult.value);
+    if (reaperResult.status === "fulfilled") setReaperStatus(reaperResult.value);
     setServiceBusy(false);
   };
 
@@ -196,22 +205,49 @@ export function App() {
     }));
 
     try {
-      const response = await localChat({
+      const { plan, response } = await planWithLocalModel({
         provider: provider.id,
         model,
         messages: [
-          { role: "system", content: AERA_SYSTEM_PROMPT },
           ...history,
           { role: "user", content: clean },
         ],
       });
 
-      appendAssistant(
-        response.content,
+      const meta =
         response.elapsedMs > 0
           ? provider.name + " · " + shortModelName(response.model) + " · " + response.elapsedMs + " ms"
-          : provider.name + " · " + shortModelName(response.model),
-      );
+          : provider.name + " · " + shortModelName(response.model);
+
+      let reply = plan.message;
+
+      if (plan.kind === "action") {
+        const skill = runtime.skills.findFor(plan.capability);
+        const action = skill ? await skill.propose(plan.capability, plan.input) : null;
+
+        if (!action) {
+          reply = "That action is not available through an installed AERA Skill.";
+          runtime.setState("QUESTION");
+        } else {
+          const result = await runtime.execute(action);
+          if (result.ok) {
+            reply = "REAPER is open.";
+            setReaperStatus((current) =>
+              current ? { ...current, installed: true } : current,
+            );
+          } else {
+            reply =
+              "I couldn't open REAPER: " +
+              ("error" in result && result.error
+                ? result.error
+                : "the action was not permitted.");
+          }
+        }
+      } else {
+        runtime.setState("SUCCESS");
+      }
+
+      appendAssistant(reply, meta);
 
       const wantsVoice =
         preferences.talkBack === "voice" ||
@@ -219,17 +255,19 @@ export function App() {
 
       if (wantsVoice && speechStatus?.piperAvailable) {
         runtime.setState("SPEAKING");
-        runtime.notify(response.content);
+        runtime.notify(reply);
         try {
-          const audio = await synthesizeSpeech(response.content);
+          const audio = await synthesizeSpeech(reply);
           await playWavBytes(audio);
         } catch {
           // Text reply remains available when local TTS cannot play.
         }
       }
 
-      runtime.setState("SUCCESS");
-      runtime.notify(response.content);
+      if (runtime.state !== "ERROR" && runtime.state !== "QUESTION") {
+        runtime.setState("SUCCESS");
+      }
+      runtime.notify(reply);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       const reply = "Local AI error: " + detail;
@@ -327,6 +365,12 @@ export function App() {
               </span>
               <span className={speechStatus?.piperAvailable ? "service-on" : "service-off"}>
                 VOICE
+              </span>
+              <span
+                className={reaperStatus?.installed ? "service-on" : "service-off"}
+                title={reaperStatus?.installed ? "REAPER Skill ready" : "REAPER not detected"}
+              >
+                REAPER
               </span>
               <button
                 type="button"

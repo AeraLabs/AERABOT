@@ -157,7 +157,7 @@ button, input, select { font: inherit; }
 .aera-wordmark strong { letter-spacing: 0.18em; font-size: 11px; }
 .aera-wordmark > span { color: rgba(207, 232, 238, 0.52); font-size: 9px; text-transform: capitalize; }
 
-.service-cluster { gap: 5px; }
+.service-cluster { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 
 .service-cluster > span {
   padding: 3px 6px;
