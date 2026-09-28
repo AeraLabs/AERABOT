@@ -4,8 +4,7 @@ import { openKnownApp } from "../platform/apps";
 
 export type DawAppId =
   | "protools"
-  | "logic"
-  | "ableton";
+  | "logic";
 
 type LaunchInput = {
   appId?: unknown;
@@ -79,8 +78,3 @@ export const logicSkill = createDawLaunchSkill({
   platforms: ["macOS"],
 });
 
-export const abletonSkill = createDawLaunchSkill({
-  id: "ableton",
-  name: "Ableton Live",
-  platforms: ["macOS", "Windows"],
-});
