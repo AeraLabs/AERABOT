@@ -14,6 +14,7 @@ import {
   type MotionPreference,
   type TalkBackPreference,
 } from "./core/preferences";
+import { parseDirectIntent } from "./core/directIntent";
 import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
 import { OrbScene } from "./orb/OrbScene";
 import { visualFor, type OrbState } from "./orb/state";
@@ -184,6 +185,35 @@ export function App() {
     runtime.notify("“" + clean + "”");
 
     if (await runtime.runInternalCommand(clean)) return;
+
+    const directIntent = parseDirectIntent(clean);
+    if (directIntent) {
+      const skill = runtime.skills.findFor(directIntent.capability);
+      const action = skill
+        ? await skill.propose(directIntent.capability, directIntent.input)
+        : null;
+
+      if (!action) {
+        const reply = "That command is not available through an installed AERA Skill.";
+        runtime.setState("QUESTION");
+        runtime.notify(reply);
+        appendAssistant(reply, "AERA direct intent");
+        return;
+      }
+
+      const result = await runtime.execute(action);
+      const reply = result.ok
+        ? directIntent.successMessage
+        : "I couldn't complete that command: " +
+          ("error" in result && result.error
+            ? result.error
+            : "the action was not permitted.");
+
+      if (result.ok) runtime.setState("SUCCESS");
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA direct intent · local");
+      return;
+    }
 
     const provider = resolveProvider(preferences.aiProvider, providers);
     const model =
