@@ -1,10 +1,18 @@
 {
   "id": "ableton",
   "name": "Ableton Live",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "AeraLabs",
   "capabilities": [
-    "software.open"
+    "software.open",
+    "transport.play",
+    "transport.stop",
+    "transport.record.toggle",
+    "track.mute.set",
+    "track.solo.set",
+    "track.arm.set",
+    "track.volume.set",
+    "track.pan.set"
   ],
   "platforms": [
     "macos-arm64",
@@ -20,12 +28,22 @@
   "currentImplementation": {
     "softwareDetection": true,
     "launch": true,
-    "transport": false,
-    "trackControl": false,
-    "projectInspection": false
+    "transport": true,
+    "trackControl": true,
+    "projectInspection": true,
+    "selectedTrackInspection": true,
+    "deviceInspection": true
   },
   "permissions": {
-    "software.open": "safe"
+    "software.open": "safe",
+    "transport.play": "safe",
+    "transport.stop": "safe",
+    "transport.record.toggle": "safe",
+    "track.mute.set": "reversible",
+    "track.solo.set": "reversible",
+    "track.arm.set": "reversible",
+    "track.volume.set": "reversible",
+    "track.pan.set": "reversible"
   },
-  "notes": "Phase 1 detects and launches Ableton Live. Deep control should use the Live API/Live Object Model through a companion Max for Live device, with control-surface scripts as a secondary path."
+  "notes": "AERA ships a Max for Live JavaScript companion source using LiveAPI. It publishes verified Set/transport/selected-track/device state and consumes only the shared local AERA DAW command protocol. The user must load it inside a Max for Live device; no UI-coordinate automation is used."
 }
