@@ -9,6 +9,7 @@ const foreground = {
   title: "Set.als",
   bounds: { x: 0, y: 0, width: 1200, height: 800 },
   minimized: false,
+  maximized: false,
   fullscreen: false,
   coordinateSpace: "logical" as const,
   geometrySource: "macos-accessibility" as const,

@@ -18,6 +18,7 @@ function snapshot(
     title: null,
     bounds: null,
     minimized: false,
+    maximized: false,
     fullscreen: false,
     coordinateSpace: "logical",
     geometrySource: "none",
