@@ -26,6 +26,7 @@ import {
   type TalkBackPreference,
 } from "./core/preferences";
 import { ORB_SIZE_MULTIPLIERS, SPATIAL_BEHAVIOR } from "./core/appearance";
+import { answerLocalContextQuery } from "./core/contextQueries";
 import { parseDirectIntent } from "./core/directIntent";
 import { parsePreferenceIntent } from "./core/preferenceIntent";
 import { answerVerifiedReaperQuery } from "./core/reaperQueries";
@@ -471,6 +472,38 @@ export function App() {
     runtime.notify("“" + clean + "”");
 
     if (await runtime.runInternalCommand(clean)) return;
+
+    const preferenceIntent = parsePreferenceIntent(clean);
+    if (preferenceIntent) {
+      if (preferenceIntent.type === "presence") {
+        patchPreferences({ presenceStyle: preferenceIntent.value });
+      } else if (preferenceIntent.type === "size") {
+        patchPreferences({ orbSize: preferenceIntent.value });
+      } else if (preferenceIntent.type === "spatial") {
+        patchPreferences({ spatialAwareness: preferenceIntent.value });
+      } else {
+        patchPreferences({
+          spatialAwareness: true,
+          spatialBehavior: preferenceIntent.value,
+        });
+      }
+
+      appendAssistant(preferenceIntent.message, "AERA preference · local");
+      await finishReply(preferenceIntent.message, "SUCCESS");
+      return;
+    }
+
+    const contextAnswer = answerLocalContextQuery(clean, {
+      foreground,
+      dawStatuses,
+      spatialAwareness: preferences.spatialAwareness,
+      spatialBehavior: preferences.spatialBehavior,
+    });
+    if (contextAnswer) {
+      appendAssistant(contextAnswer.message, contextAnswer.meta);
+      await finishReply(contextAnswer.message, "SUCCESS");
+      return;
+    }
 
     const verifiedReaperReply = answerVerifiedReaperQuery(
       clean,
