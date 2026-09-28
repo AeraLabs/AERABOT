@@ -28,6 +28,7 @@ import {
   glideOrbHostPhysical,
   isTauriRuntime,
   listMonitors,
+  requestForegroundPermission,
   resizeOrbHost,
   type ForegroundWindowSnapshot,
   type MonitorSnapshot,
@@ -40,6 +41,7 @@ import {
 import { getReaperOscStatus, type ReaperOscStatus } from "./platform/reaperOsc";
 import {
   getReaperState,
+  installReaperBridge,
   reaperModelContext,
   reaperTransportLabel,
   type ReaperBridgeStatus,
@@ -315,6 +317,38 @@ export function App() {
     const entry: TranscriptEntry = { role: "assistant", content, meta };
     setTranscript((current) => [...current, entry].slice(-30));
   };
+
+  const enableWindowAwareness = async () => {
+    try {
+      const granted = await requestForegroundPermission();
+      const reply = granted
+        ? "Window geometry access is enabled."
+        : "macOS opened Accessibility settings. Enable AERA there, then return to AERA.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA setup · local");
+    } catch (error) {
+      const reply =
+        error instanceof Error ? error.message : "Could not request window awareness.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA setup");
+    }
+  };
+
+  const installReaperCompanion = async () => {
+    try {
+      const result = await installReaperBridge();
+      const reply = result.alreadyCurrent
+        ? "The REAPER bridge file is already current. Open REAPER’s Actions window and run aera_bridge.lua."
+        : "REAPER bridge file installed. Open REAPER’s Actions window, load aera_bridge.lua, and run it.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA setup · local");
+    } catch (error) {
+      const reply = error instanceof Error ? error.message : String(error);
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA setup");
+    }
+  };
+
 
   const finishReply = async (reply: string, finalState: OrbState) => {
     const wantsVoice =
@@ -669,7 +703,7 @@ export function App() {
             )}
           </div>
 
-          {reaperBridge?.available && !reaperBridge.stale && reaperBridge.state && (
+          {reaperBridge?.available && !reaperBridge.stale && reaperBridge.state ? (
             <div className="reaper-livebar">
               <span>REAPER LIVE</span>
               <strong>{reaperBridge.state.projectName}</strong>
@@ -687,7 +721,17 @@ export function App() {
                   : ""}
               </small>
             </div>
-          )}
+          ) : reaperStatus?.installed ? (
+            <div className="setup-strip">
+              <span>REAPER INSPECTION</span>
+              <small>
+                {reaperBridge?.error ?? "The read-only REAPER bridge is not running."}
+              </small>
+              <button type="button" onClick={installReaperCompanion}>
+                Install bridge file
+              </button>
+            </div>
+          ) : null}
 
           <form className="command-form" onSubmit={submitCommand}>
             <button
@@ -842,10 +886,16 @@ export function App() {
               <small>
                 Focus · {foreground.appName ?? "unknown app"}
                 {foreground.title ? " · " + foreground.title : ""}
-                {foreground.permissionRequired && !foreground.permissionGranted
-                  ? " · geometry permission needed"
-                  : ""}
               </small>
+            )}
+            {foreground?.permissionRequired && !foreground.permissionGranted && (
+              <button
+                type="button"
+                className="permission-button"
+                onClick={enableWindowAwareness}
+              >
+                Enable window geometry
+              </button>
             )}
           </footer>
         </section>
