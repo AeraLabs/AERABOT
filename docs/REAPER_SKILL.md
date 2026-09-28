@@ -101,12 +101,13 @@ This is a read-only deferred Lua ReaScript. REAPER ships with embedded Lua suppo
 
 ### Install the bridge
 
-1. In REAPER open **Options -> Show REAPER resource path in explorer/finder**.
-2. Open the `Scripts` directory.
-3. Copy `aera_bridge.lua` into `Scripts/AERA/`.
-4. Open REAPER's Actions window.
-5. Choose **ReaScript: Load...** and load the script.
-6. Run it. It remains active as a deferred script until stopped from REAPER's Actions menu.
+1. Open AERA's control panel while REAPER is installed.
+2. Under **REAPER INSPECTION**, click **Install bridge file**. AERA copies the exact bundled script into REAPER's local `Scripts/AERA/` directory.
+3. Open REAPER's Actions window.
+4. Choose **ReaScript: Load...** and load `aera_bridge.lua`.
+5. Run it. It remains active as a deferred script until stopped from REAPER's Actions menu.
+
+AERA refuses to overwrite an existing bridge script when its contents differ from the bundled source, so local edits are never silently destroyed.
 
 The script writes:
 
