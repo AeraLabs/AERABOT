@@ -4,68 +4,152 @@
 
 ```text
 Desktop Host (Tauri/Rust)
-        |
-        +---- Orb Renderer (Three.js)
-        +---- AERA Core (commands, actions, journal)
-        +---- OS Bridge (position, monitors, windows)
-        +---- Skill Bus (future software integrations)
+        │
+        ├── Orb Renderer (Three.js)
+        ├── Local AI + Speech Bridges
+        ├── AERA Core (state, permissions, journal)
+        ├── OS Bridge (position, monitors, known apps)
+        └── Skill Bus
+                │
+                └── REAPER Skill / future software Skills
 ```
 
-The renderer is intentionally not the intelligence. It observes `OrbState` and expresses state through scale, energy, waveform motion, particles, light, and earcons.
+The renderer is not the intelligence. It observes `OrbState` and expresses real runtime state through scale, depth, energy, waveform motion, particles, light, and earcons.
 
 ## Native host
 
-Rust/Tauri owns the transparent always-on-top desktop window, physical window sizing, monitor discovery, architecture detection, and future OS-specific bridges. Platform-specific APIs belong behind native modules instead of leaking checks throughout the product.
+Rust/Tauri owns:
+
+- transparent always-on-top desktop window
+- physical window sizing
+- monitor discovery
+- architecture detection
+- global summon shortcut
+- persistent physical position
+- whitelisted known-application operations
+- local HTTP bridges
+- loopback REAPER OSC
+- future OS-specific window-awareness APIs
+
+Platform-specific behavior belongs behind native modules instead of being scattered through the React layer.
 
 ## Spatial model
 
-X/Y represent desktop position. Z is simulated through six depth zones and influences physical host diameter, renderer scale, opacity, detail, motion amplitude, and energy.
+X/Y are real desktop coordinates. Z is simulated through six reusable depth zones and influences host diameter, renderer scale, opacity, detail, blur, motion amplitude, and visual energy.
 
-The native window resizes as AERA changes perceived depth. That keeps the transparent hit target close to the visible orb rather than placing a large invisible always-on-top rectangle over the user's work.
+The native host resizes with perceived depth so a tiny/background AERA does not leave a large invisible always-on-top rectangle over the user's workspace.
+
+## Position persistence
+
+The native host stores the orb's last physical desktop coordinates in AERA's application config directory.
+
+At startup, coordinates are restored only when the saved point still falls on a currently connected monitor. If display topology changed, AERA keeps the safe startup placement rather than restoring off-screen.
+
+Physical pixels are used so mixed-DPI and Retina/non-Retina layouts retain coordinate precision.
 
 ## State model
 
-Initial states: IDLE, AMBIENT, AWAKE, LISTENING, UNDERSTANDING, THINKING, ACTING, WAITING, SPEAKING, QUESTION, SUCCESS, WARNING, ERROR, SLEEPING, STUDIO, DND.
+Current states:
 
-State transitions are runtime events from AERA Core. The renderer does not invent thinking or acting with fake timers.
+`IDLE`, `AMBIENT`, `AWAKE`, `LISTENING`, `UNDERSTANDING`, `THINKING`, `ACTING`, `WAITING`, `SPEAKING`, `QUESTION`, `SUCCESS`, `WARNING`, `ERROR`, `SLEEPING`, `STUDIO`, `DND`.
+
+State transitions are runtime events from AERA Core.
+
+## Local intelligence boundary
+
+AERA supports interchangeable local inference providers:
+
+- Ollama
+- llama.cpp
+- explicitly configured loopback OpenAI-compatible server
+
+The provider returns language/model output only. It has no native desktop authority.
+
+The planner is generated from the capabilities advertised by installed Skills.
+
+```text
+installed Skills
+      ↓
+planner capability catalog
+      ↓
+local model
+      ↓
+candidate semantic action
+      ↓
+Skill validation
+      ↓
+permission engine
+```
+
+This means a new Skill can add model-visible capabilities without modifying the central planner.
 
 ## Permission architecture
 
-Every external software action becomes a `ProposedAction`: safe, reversible, or destructive. Destructive actions require confirmation. Execution is journaled. Future Skills can expose undo for reversible operations.
+Every external action becomes a `ProposedAction` classified as:
+
+- safe
+- reversible
+- destructive
+
+Destructive actions require confirmation. Executed/rejected actions enter the journal. Skills can later expose undo for reversible operations.
 
 ## Skill architecture
 
-Skills advertise semantic capabilities such as `transport.play`, `track.arm`, `parameter.set`, and `project.inspect`. AERA Core reasons about capabilities. Skills translate them into native APIs, plugins, scripting, RPC, MIDI/OSC, accessibility, or lower-priority automation.
+A Skill advertises:
 
-## Current status
+- stable identity
+- supported semantic capabilities
+- planner-facing action descriptors
+- platform support
+- proposal/input validation
+- execution implementation
+- optional undo behavior
+
+AERA Core never needs application-specific screen coordinates or arbitrary command strings.
+
+## REAPER proving ground
+
+REAPER currently proves two backend classes:
+
+- whitelisted native app detection/launch
+- fixed allowlist of loopback OSC transport operations
+
+The model sees `software.open`, `transport.play`, `transport.stop`, and `transport.pause`, not implementation details such as executable paths or OSC addresses.
+
+See `REAPER_SKILL.md`.
+
+## Current real capabilities
 
 Implemented:
+
 - transparent native host
-- runtime architecture detection
+- Intel/Apple Silicon architecture detection
 - dynamic physical orb sizing
-- monitor discovery
+- multi-monitor discovery
+- persistent desktop position
+- global summon shortcut
 - realtime glass/energy renderer
 - state-driven visual personality
 - procedural earcons
-- permission classification
+- microphone PCM capture
+- whisper.cpp STT bridge
+- Piper TTS bridge
+- Ollama model discovery/chat
+- llama.cpp model discovery/chat
+- generic loopback OpenAI-compatible model discovery/chat
+- constrained Skill-generated planner
+- risk classification
 - action journal
-- Skill bus contract
+- REAPER detection + launch
+- REAPER play/stop/pause through optional loopback OSC
 - reduced-motion support
-- spatial placement utilities
-- Intel/Apple Silicon/Windows build targets
+- cross-platform packaging CI
 
-Intentionally not faked yet:
+Not claimed yet:
+
 - wake word
-- speech recognition
-- LLM inference
-- application control
-- focused-window geometry
-- DAW Skills
+- focused external-window geometry
 - screen inspection
-
-
-## Desktop position persistence
-
-The native host stores the orb's last physical desktop coordinates in AERA's application config directory. On startup the saved coordinates are restored only when they still land on a currently connected display. If the monitor has been disconnected or the topology has changed, AERA leaves Tauri's safe startup placement intact rather than restoring itself off-screen.
-
-Position persistence uses physical pixels so mixed-DPI and Retina/non-Retina monitor arrangements do not lose coordinate precision during native dragging.
+- bidirectional DAW state
+- project/track inspection
+- broader software Skills
