@@ -117,7 +117,7 @@ mod platform {
             let mut rect: RECT = zeroed();
             let hr = DwmGetWindowAttribute(
                 hwnd,
-                DWMWA_EXTENDED_FRAME_BOUNDS,
+                DWMWA_EXTENDED_FRAME_BOUNDS as u32,
                 (&mut rect as *mut RECT).cast(),
                 size_of::<RECT>() as u32,
             );
