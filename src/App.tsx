@@ -37,6 +37,11 @@ import { quantizedWindowKey } from "./orb/spatial";
 import { visualFor, type OrbState } from "./orb/state";
 import { getKnownAppStatus, type KnownAppStatus } from "./platform/apps";
 import {
+  foregroundDaw,
+  foregroundDawModelContext,
+  isCoreDawId,
+} from "./platform/dawAwareness";
+import {
   beginNativeDrag,
   getForegroundWindowSnapshot,
   getSystemProfile,
@@ -254,18 +259,18 @@ export function App() {
 
   useEffect(() => {
     if (!foreground || panelOpen) return;
-    const reaperFocused = isReaperForeground(foreground);
+    const daw = foregroundDaw(foreground);
 
     if (
-      reaperFocused &&
+      daw &&
       (state === "AMBIENT" || state === "AWAKE" || state === "IDLE")
     ) {
       runtime.setState("STUDIO");
-      runtime.notify("REAPER focus detected · Studio Mode");
+      runtime.notify(daw.name + " focus detected · Studio Mode");
       return;
     }
 
-    if (!reaperFocused && state === "STUDIO") {
+    if (!daw && state === "STUDIO") {
       runtime.setState("AMBIENT");
       runtime.notify(
         foreground.appName ? "Focused: " + foreground.appName : "AERA ambient",
@@ -549,7 +554,11 @@ export function App() {
       appendAssistant(reply, "AERA direct intent · local");
       await finishReply(
         reply,
-        result.ok && directIntent.input.appId === "reaper" ? "STUDIO" : result.ok ? "SUCCESS" : "ERROR",
+        result.ok && isCoreDawId(directIntent.input.appId)
+          ? "STUDIO"
+          : result.ok
+            ? "SUCCESS"
+            : "ERROR",
       );
       return;
     }
@@ -584,6 +593,14 @@ export function App() {
           model,
           messages: [
             ...history,
+            ...(foregroundDawModelContext(foreground)
+              ? [
+                  {
+                    role: "system" as const,
+                    content: foregroundDawModelContext(foreground)!,
+                  },
+                ]
+              : []),
             ...(foreground &&
             isReaperForeground(foreground) &&
             reaperBridge?.available &&
@@ -624,14 +641,23 @@ export function App() {
               result.result,
               plan.message,
             );
-            if (plan.capability === "software.open") {
-              setReaperStatus((current) =>
-                current ? { ...current, installed: true } : current,
+            if (plan.capability === "software.open" && isCoreDawId(plan.input.appId)) {
+              setDawStatuses((current) =>
+                current.map((status) =>
+                  status.id === plan.input.appId
+                    ? { ...status, installed: true }
+                    : status,
+                ),
               );
+              if (plan.input.appId === "reaper") {
+                setReaperStatus((current) =>
+                  current ? { ...current, installed: true } : current,
+                );
+              }
             }
           } else {
             reply =
-              "I couldn't complete that REAPER action: " +
+              "I couldn't complete that desktop action: " +
               ("error" in result && result.error
                 ? result.error
                 : "the action was not permitted.");
@@ -645,7 +671,7 @@ export function App() {
           ? "ERROR"
           : runtime.state === "QUESTION"
             ? "QUESTION"
-            : plan.kind === "action" && plan.input.appId === "reaper"
+            : plan.kind === "action" && isCoreDawId(plan.input.appId)
               ? "STUDIO"
               : "SUCCESS";
       await finishReply(reply, finalState);
