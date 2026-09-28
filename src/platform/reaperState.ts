@@ -107,3 +107,17 @@ export function reaperModelContext(state: ReaperProjectState) {
     selectedText,
   ].join(" ");
 }
+
+
+export interface ReaperBridgeInstallResult {
+  installed: boolean;
+  alreadyCurrent: boolean;
+  path: string;
+}
+
+export async function installReaperBridge(): Promise<ReaperBridgeInstallResult> {
+  if (!isTauriRuntime()) {
+    throw new Error("REAPER bridge installation requires the desktop runtime.");
+  }
+  return invoke<ReaperBridgeInstallResult>("install_reaper_bridge");
+}
