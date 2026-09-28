@@ -95,6 +95,7 @@ import {
   consumeWakeWordEvent,
   getWakeWordStatus,
   installWakeWordCompanion,
+  type WakeWordEvent,
   type WakeWordStatus,
 } from "./platform/wakeword";
 
@@ -133,6 +134,7 @@ export function App() {
   const lastSpatialKeyRef = useRef("");
   const lastSpatialMoveRef = useRef(0);
   const manualSpatialHoldUntilRef = useRef(0);
+  const wakeCaptureBusyRef = useRef(false);
 
   const [state, setState] = useState<OrbState>(runtime.state);
   const [message, setMessage] = useState("AERA ambient");
@@ -155,6 +157,7 @@ export function App() {
   const [logicBridge, setLogicBridge] = useState<DawBridgeStatus | null>(null);
   const [proToolsBridge, setProToolsBridge] = useState<DawBridgeStatus | null>(null);
   const [wakeWordStatus, setWakeWordStatus] = useState<WakeWordStatus | null>(null);
+  const [pendingWakeEvent, setPendingWakeEvent] = useState<WakeWordEvent | null>(null);
   const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
   const [monitors, setMonitors] = useState<MonitorSnapshot[]>([]);
   const [serviceBusy, setServiceBusy] = useState(false);
@@ -374,6 +377,7 @@ export function App() {
         if (!disposed && event) {
           runtime.setState("AWAKE");
           runtime.notify("Wake phrase detected · " + event.phrase);
+          setPendingWakeEvent(event);
         }
       } catch {
         // Wake word is an optional local companion.
@@ -461,12 +465,14 @@ export function App() {
   }, [activeProvider, availableModels, preferences.aiModel]);
 
   useEffect(() => {
-    const diameter = panelOpen
-      ? 552
-      : (visualFor(state).nativeDiameter + 64) *
-        ORB_SIZE_MULTIPLIERS[preferences.orbSize];
+    const diameter = skillManagerOpen
+      ? 720
+      : panelOpen
+        ? 552
+        : (visualFor(state).nativeDiameter + 64) *
+          ORB_SIZE_MULTIPLIERS[preferences.orbSize];
     resizeOrbHost(diameter).catch(() => undefined);
-  }, [panelOpen, preferences.orbSize, state]);
+  }, [panelOpen, preferences.orbSize, skillManagerOpen, state]);
 
   const patchPreferences = (patch: Partial<AeraPreferences>) => {
     setPreferences((current) => ({ ...current, ...patch }));
@@ -983,23 +989,78 @@ export function App() {
     await processInput(value);
   };
 
+  const finishRecordedCommand = async (recorder: PcmRecorder) => {
+    if (recorderRef.current === recorder) {
+      recorderRef.current = null;
+    }
+    setRecording(false);
+    runtime.setState("UNDERSTANDING");
+    runtime.notify("Transcribing locally…");
+
+    try {
+      const wav = await recorder.stop();
+      const text = (await transcribeAudio(wav)).trim();
+      if (!text) {
+        runtime.setState("QUESTION");
+        runtime.notify("I didn’t catch a command.");
+        return;
+      }
+      await processInput(text);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      runtime.setState("ERROR");
+      runtime.notify(detail);
+    }
+  };
+
+  const runWakeConversation = async (event: WakeWordEvent) => {
+    if (wakeCaptureBusyRef.current || recorderRef.current) return;
+
+    setSkillManagerOpen(false);
+    setPanelOpen(true);
+    await unlockAudio().catch(() => undefined);
+
+    if (!speechStatus?.whisperAvailable) {
+      runtime.setState("QUESTION");
+      runtime.notify(
+        "Wake phrase detected, but whisper.cpp is offline. Start local speech recognition or use text input.",
+      );
+      return;
+    }
+
+    wakeCaptureBusyRef.current = true;
+    try {
+      const recorder = await startPcmRecorder();
+      recorderRef.current = recorder;
+      setRecording(true);
+      runtime.setState("LISTENING");
+      runtime.notify("I’m listening…");
+
+      await new Promise((resolve) => window.setTimeout(resolve, 5200));
+
+      // A manual mic click can finish the utterance early.
+      if (recorderRef.current !== recorder) return;
+      await finishRecordedCommand(recorder);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      runtime.setState("ERROR");
+      runtime.notify(detail);
+    } finally {
+      wakeCaptureBusyRef.current = false;
+      setPendingWakeEvent((current) =>
+        current?.eventId === event.eventId &&
+        current?.detectedAtMs === event.detectedAtMs
+          ? null
+          : current,
+      );
+    }
+  };
+
   const toggleVoice = async () => {
     if (recording && recorderRef.current) {
       const recorder = recorderRef.current;
       recorderRef.current = null;
-      setRecording(false);
-      runtime.setState("UNDERSTANDING");
-      runtime.notify("Transcribing locally…");
-
-      try {
-        const wav = await recorder.stop();
-        const text = await transcribeAudio(wav);
-        await processInput(text);
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        runtime.setState("ERROR");
-        runtime.notify(detail);
-      }
+      await finishRecordedCommand(recorder);
       return;
     }
 
@@ -1020,6 +1081,11 @@ export function App() {
       runtime.notify(detail);
     }
   };
+
+  useEffect(() => {
+    if (!pendingWakeEvent) return;
+    void runWakeConversation(pendingWakeEvent);
+  }, [pendingWakeEvent]);
 
   return (
     <main
