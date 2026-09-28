@@ -1,3 +1,4 @@
+mod daw_bridge;
 mod desktop_apps;
 mod foreground;
 mod local_ai;
@@ -205,6 +206,29 @@ fn install_reaper_bridge() -> Result<reaper_state::ReaperBridgeInstallResult, St
     reaper_state::install_bridge_script()
 }
 
+#[tauri::command]
+fn fl_studio_bridge_status() -> daw_bridge::DawBridgeStatus {
+    daw_bridge::read_status("flstudio")
+}
+
+#[tauri::command]
+async fn fl_studio_command(
+    id: String,
+    capability: String,
+    input: serde_json::Value,
+) -> Result<daw_bridge::DawCommandAck, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        daw_bridge::send_command("flstudio", id, capability, input)
+    })
+    .await
+    .map_err(|error| format!("FL Studio bridge worker failed: {error}"))?
+}
+
+#[tauri::command]
+fn install_fl_studio_bridge() -> Result<daw_bridge::DawBridgeInstallResult, String> {
+    daw_bridge::install_fl_studio_bridge()
+}
+
 #[cfg(target_os = "macos")]
 fn summon_shortcut() -> Shortcut {
     Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space)
@@ -272,6 +296,9 @@ pub fn run() {
             reaper_state_snapshot,
             reaper_track_command,
             install_reaper_bridge,
+            fl_studio_bridge_status,
+            fl_studio_command,
+            install_fl_studio_bridge,
             foreground_window_snapshot,
             request_foreground_permission
         ])

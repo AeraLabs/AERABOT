@@ -3,7 +3,6 @@ import type { Skill, SkillContext } from "../core/skills";
 import { openKnownApp } from "../platform/apps";
 
 export type DawAppId =
-  | "flstudio"
   | "protools"
   | "logic"
   | "ableton";
@@ -67,12 +66,6 @@ export function createDawLaunchSkill(spec: LaunchSkillSpec): Skill {
     },
   };
 }
-
-export const flStudioSkill = createDawLaunchSkill({
-  id: "flstudio",
-  name: "FL Studio",
-  platforms: ["macOS", "Windows"],
-});
 
 export const proToolsSkill = createDawLaunchSkill({
   id: "protools",

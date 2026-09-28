@@ -66,6 +66,12 @@ import {
   isReaperForeground,
   planSpatialTarget,
 } from "./platform/spatialAwareness";
+import {
+  flStudioModelContext,
+  getFlStudioBridgeStatus,
+  installFlStudioBridge,
+  type DawBridgeStatus,
+} from "./platform/dawBridge";
 import { getReaperOscStatus, type ReaperOscStatus } from "./platform/reaperOsc";
 import {
   getReaperState,
@@ -76,10 +82,10 @@ import {
 } from "./platform/reaperState";
 import {
   abletonSkill,
-  flStudioSkill,
   logicSkill,
   proToolsSkill,
 } from "./skills/dawLaunch";
+import { flStudioSkill } from "./skills/flstudio";
 import { reaperSkill } from "./skills/reaper";
 
 type TranscriptEntry = {
@@ -131,6 +137,7 @@ export function App() {
   const [dawStatuses, setDawStatuses] = useState<KnownAppStatus[]>([]);
   const [reaperOscStatus, setReaperOscStatus] = useState<ReaperOscStatus | null>(null);
   const [reaperBridge, setReaperBridge] = useState<ReaperBridgeStatus | null>(null);
+  const [flStudioBridge, setFlStudioBridge] = useState<DawBridgeStatus | null>(null);
   const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
   const [monitors, setMonitors] = useState<MonitorSnapshot[]>([]);
   const [serviceBusy, setServiceBusy] = useState(false);
@@ -263,6 +270,27 @@ export function App() {
 
     pollReaper();
     const timer = window.setInterval(pollReaper, 600);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    const pollFlStudio = async () => {
+      try {
+        const status = await getFlStudioBridgeStatus();
+        if (!disposed) setFlStudioBridge(status);
+      } catch {
+        // FL Studio bridge is optional.
+      }
+    };
+
+    pollFlStudio();
+    const timer = window.setInterval(pollFlStudio, 650);
     return () => {
       disposed = true;
       window.clearInterval(timer);
@@ -433,6 +461,21 @@ export function App() {
     } catch (error) {
       const reply =
         error instanceof Error ? error.message : "Could not request window awareness.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA setup");
+    }
+  };
+
+  const installFlStudioCompanion = async () => {
+    try {
+      const result = await installFlStudioBridge();
+      const reply = result.alreadyCurrent
+        ? "The FL Studio AERA bridge is already installed. In FL Studio MIDI Settings, choose AERA Local Bridge as a Controller type."
+        : "FL Studio bridge installed. In FL Studio MIDI Settings, choose AERA Local Bridge as a Controller type.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA setup · local");
+    } catch (error) {
+      const reply = error instanceof Error ? error.message : String(error);
       runtime.notify(reply);
       appendAssistant(reply, "AERA setup");
     }
@@ -667,6 +710,17 @@ export function App() {
                   },
                 ]
               : []),
+            ...(foregroundDaw(foreground)?.id === "flstudio" &&
+            flStudioBridge?.available &&
+            !flStudioBridge.stale &&
+            flStudioBridge.state
+              ? [
+                  {
+                    role: "system" as const,
+                    content: flStudioModelContext(flStudioBridge.state),
+                  },
+                ]
+              : []),
             { role: "user", content: clean },
           ],
         },
@@ -890,6 +944,27 @@ export function App() {
                 }
               >
                 LIVE
+              </span>
+              <span
+                className={
+                  flStudioBridge?.available && !flStudioBridge.stale
+                    ? "service-on"
+                    : "service-off"
+                }
+                title={
+                  flStudioBridge?.available && flStudioBridge.state
+                    ? "FL Studio bridge · " +
+                      (flStudioBridge.state.projectName ?? "untitled") +
+                      " · " +
+                      (flStudioBridge.state.transport.recording
+                        ? "recording"
+                        : flStudioBridge.state.transport.playing
+                          ? "playing"
+                          : "stopped")
+                    : flStudioBridge?.error ?? "FL Studio bridge disconnected"
+                }
+              >
+                FL LIVE
               </span>
               <button
                 type="button"
