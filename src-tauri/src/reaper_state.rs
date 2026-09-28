@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime};
 
 const STATE_FILE: &str = "aera-state.json";
 const BRIDGE_SCRIPT_FILE: &str = "aera_bridge.lua";
+const COMMAND_FILE: &str = "aera-command.tsv";
+const RESULT_FILE: &str = "aera-result.tsv";
 const BRIDGE_SCRIPT_SOURCE: &str =
     include_str!("../../skills/reaper/reascript/aera_bridge.lua");
 const STALE_AFTER: Duration = Duration::from_secs(3);
@@ -63,6 +66,17 @@ pub struct ReaperProjectState {
     pub tracks_truncated: bool,
     pub selected_track: Option<SelectedTrackSummary>,
     pub tracks: Vec<ReaperTrackState>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReaperTrackCommandOutcome {
+    pub id: String,
+    pub operation: String,
+    pub track_guid: String,
+    pub requested_value: bool,
+    pub before: bool,
+    pub after: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -290,4 +304,110 @@ pub fn install_bridge_script() -> Result<ReaperBridgeInstallResult, String> {
         already_current: false,
         path: target.to_string_lossy().into_owned(),
     })
+}
+
+
+fn live_bridge_directory() -> Result<PathBuf, String> {
+    let status = read_status();
+    if !status.available || status.stale {
+        return Err(
+            status
+                .error
+                .unwrap_or_else(|| "The REAPER live bridge is not running.".into()),
+        );
+    }
+
+    let state_path = status
+        .path
+        .ok_or_else(|| "The REAPER live bridge has no state path.".to_string())?;
+    PathBuf::from(state_path)
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "The REAPER live bridge state path has no parent directory.".into())
+}
+
+fn parse_result_line(line: &str) -> Result<(String, bool, bool, bool, String), String> {
+    let mut parts = line.trim_end_matches(['\r', '\n']).splitn(5, '\t');
+    let id = parts.next().unwrap_or_default().to_string();
+    let ok = parts.next().unwrap_or("0") == "1";
+    let before = parts.next().unwrap_or("0") == "1";
+    let after = parts.next().unwrap_or("0") == "1";
+    let error = parts.next().unwrap_or_default().to_string();
+    if id.is_empty() {
+        return Err("REAPER returned an invalid command result.".into());
+    }
+    Ok((id, ok, before, after, error))
+}
+
+pub fn send_track_command(
+    id: String,
+    track_guid: String,
+    operation: String,
+    value: bool,
+) -> Result<ReaperTrackCommandOutcome, String> {
+    if id.trim().is_empty() || id.contains(['\t', '\n', '\r']) {
+        return Err("Invalid REAPER command id.".into());
+    }
+    if track_guid.trim().is_empty() || track_guid.contains(['\t', '\n', '\r']) {
+        return Err("Invalid REAPER track GUID.".into());
+    }
+    if !matches!(operation.as_str(), "mute" | "solo" | "arm") {
+        return Err("Unsupported REAPER track operation.".into());
+    }
+
+    let directory = live_bridge_directory()?;
+    let command_path = directory.join(COMMAND_FILE);
+    let result_path = directory.join(RESULT_FILE);
+    let temp_path = directory.join("aera-command.tmp");
+
+    if command_path.exists() {
+        let pending_age = age(&command_path).unwrap_or(Duration::ZERO);
+        if pending_age < Duration::from_secs(3) {
+            return Err("REAPER bridge is busy with another command.".into());
+        }
+        let _ = fs::remove_file(&command_path);
+    }
+
+    let _ = fs::remove_file(&result_path);
+
+    let payload = format!(
+        "{}\t{}\t{}\t{}\n",
+        id,
+        operation,
+        track_guid,
+        if value { "1" } else { "0" }
+    );
+    fs::write(&temp_path, payload.as_bytes())
+        .map_err(|error| format!("Could not stage REAPER command: {error}"))?;
+    fs::rename(&temp_path, &command_path)
+        .map_err(|error| format!("Could not publish REAPER command: {error}"))?;
+
+    let deadline = Instant::now() + Duration::from_millis(1600);
+    while Instant::now() <= deadline {
+        if let Ok(text) = fs::read_to_string(&result_path) {
+            if let Ok((result_id, ok, before, after, error)) = parse_result_line(&text) {
+                if result_id == id {
+                    let _ = fs::remove_file(&result_path);
+                    if !ok {
+                        return Err(if error.is_empty() {
+                            "REAPER rejected the track command.".into()
+                        } else {
+                            error
+                        });
+                    }
+                    return Ok(ReaperTrackCommandOutcome {
+                        id,
+                        operation,
+                        track_guid,
+                        requested_value: value,
+                        before,
+                        after,
+                    });
+                }
+            }
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+
+    Err("REAPER did not acknowledge the track command before timeout.".into())
 }
