@@ -181,6 +181,16 @@ fn foreground_window_snapshot() -> foreground::ForegroundWindowSnapshot {
     foreground::snapshot()
 }
 
+#[tauri::command]
+fn request_foreground_permission() -> bool {
+    foreground::request_permission()
+}
+
+#[tauri::command]
+fn install_reaper_bridge() -> Result<reaper_state::ReaperBridgeInstallResult, String> {
+    reaper_state::install_bridge_script()
+}
+
 #[cfg(target_os = "macos")]
 fn summon_shortcut() -> Shortcut {
     Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space)
@@ -246,7 +256,9 @@ pub fn run() {
             reaper_osc_status,
             reaper_transport,
             reaper_state_snapshot,
-            foreground_window_snapshot
+            install_reaper_bridge,
+            foreground_window_snapshot,
+            request_foreground_permission
         ])
         .run(tauri::generate_context!())
         .expect("error while running AERA Orb");
