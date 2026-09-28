@@ -106,6 +106,7 @@ export interface ForegroundWindowSnapshot {
   title: string | null;
   bounds: ForegroundWindowBounds | null;
   minimized: boolean | null;
+  maximized: boolean | null;
   fullscreen: boolean | null;
   coordinateSpace: "physical" | "logical";
   geometrySource: "win32-dwm" | "macos-accessibility" | "none";
@@ -125,6 +126,7 @@ export async function getForegroundWindowSnapshot(): Promise<ForegroundWindowSna
       title: null,
       bounds: null,
       minimized: null,
+      maximized: null,
       fullscreen: null,
       coordinateSpace: "logical",
       geometrySource: "none",

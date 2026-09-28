@@ -19,6 +19,7 @@ pub struct ForegroundWindowSnapshot {
     pub title: Option<String>,
     pub bounds: Option<WindowBounds>,
     pub minimized: Option<bool>,
+    pub maximized: Option<bool>,
     pub fullscreen: Option<bool>,
     pub coordinate_space: String,
     pub geometry_source: String,
@@ -38,6 +39,7 @@ impl ForegroundWindowSnapshot {
             title: None,
             bounds: None,
             minimized: None,
+            maximized: None,
             fullscreen: None,
             coordinate_space: "logical".into(),
             geometry_source: "none".into(),
@@ -146,7 +148,10 @@ mod platform {
                 title: window_title(hwnd as isize),
                 bounds,
                 minimized: Some(IsIconic(hwnd) != 0),
-                fullscreen: Some(IsZoomed(hwnd) != 0),
+                maximized: Some(IsZoomed(hwnd) != 0),
+                // Maximized is not equivalent to fullscreen. A future Windows
+                // monitor comparison can populate true fullscreen state.
+                fullscreen: None,
                 coordinate_space: "physical".into(),
                 geometry_source: "win32-dwm".into(),
                 permission_required: false,
@@ -189,6 +194,7 @@ mod platform {
         let mut title = None;
         let mut bounds = None;
         let mut minimized = None;
+        let maximized = None;
         let mut fullscreen = None;
         let mut geometry_error = None;
 
@@ -227,6 +233,7 @@ mod platform {
             title,
             bounds,
             minimized,
+            maximized,
             fullscreen,
             coordinate_space: "logical".into(),
             geometry_source: if trusted {

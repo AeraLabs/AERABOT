@@ -77,17 +77,16 @@ AERA sends only to `127.0.0.1`. The native bridge contains a fixed allowlist for
 
 ## Next REAPER layer
 
-The next meaningful expansion should use REAPER's stronger integration surfaces rather than mouse automation:
+The read-only project/track bridge and bidirectional transport/state foundation are now implemented. The next expansion should remain semantic and undo-aware:
 
-1. bidirectional OSC state for transport and selected-track feedback
-2. ReaScript companion for project/track inspection
-3. track arm/mute/solo through validated semantic actions
-4. selected-track volume/pan
-5. undo-aware reversible parameter changes
-6. project metadata inspection
-7. recording only after a more explicit permission and file-creation policy is designed
+1. track arm/mute/solo through validated reversible actions
+2. selected-track volume/pan with before/after journal values
+3. track selection and navigation
+4. FX bypass/preset inspection before any parameter mutation
+5. explicit undo support for reversible DAW edits
+6. recording only after a more explicit permission and file-creation policy is designed
 
-AERA should not advertise a capability until the corresponding backend is real and testable.
+AERA should not advertise a mutating capability until the corresponding backend is real and testable.
 
 
 ## Live project and track inspection
@@ -98,7 +97,7 @@ The repository now includes:
 skills/reaper/reascript/aera_bridge.lua
 ```
 
-This is a read-only deferred Lua ReaScript. REAPER ships with embedded Lua support, so it does not require Python or another runtime. ReaScript's deferred mode is designed for scripts that react to changing playback/project state. citeturn214787search1
+This is a read-only deferred Lua ReaScript. REAPER ships with embedded Lua support, so it does not require Python or another runtime. ReaScript's deferred mode is designed for scripts that react to changing playback/project state.
 
 ### Install the bridge
 
@@ -140,7 +139,7 @@ The bridge currently publishes:
 - folder depth
 - selected-track insert FX names
 
-The API backing these values is REAPER's own ReaScript interface: `GetPlayStateEx`, `GetPlayPositionEx`, `GetProjectStateChangeCount`, `CountTracks`, `GetTrackState`, `GetTrackName`, `TrackFX_GetCount`, and related calls. citeturn953479search1turn220183search0
+The API backing these values is REAPER's own ReaScript interface: `GetPlayStateEx`, `GetPlayPositionEx`, `GetProjectStateChangeCount`, `CountTracks`, `GetTrackState`, `GetTrackName`, `TrackFX_GetCount`, and related calls.
 
 ### Privacy boundary
 

@@ -29,6 +29,7 @@ function snapshot(
     title: "Song",
     bounds: { x: 100, y: 100, width: 1000, height: 700 },
     minimized: false,
+    maximized: false,
     fullscreen: false,
     coordinateSpace: "logical",
     geometrySource: "macos-accessibility",

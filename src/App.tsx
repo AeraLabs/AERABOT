@@ -15,6 +15,7 @@ import {
   type TalkBackPreference,
 } from "./core/preferences";
 import { parseDirectIntent } from "./core/directIntent";
+import { answerVerifiedReaperQuery } from "./core/reaperQueries";
 import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
 import { OrbScene } from "./orb/OrbScene";
 import { quantizedWindowKey } from "./orb/spatial";
@@ -346,6 +347,19 @@ export function App() {
     runtime.notify("“" + clean + "”");
 
     if (await runtime.runInternalCommand(clean)) return;
+
+    const verifiedReaperReply = answerVerifiedReaperQuery(
+      clean,
+      reaperBridge?.available && !reaperBridge.stale
+        ? reaperBridge.state
+        : null,
+      Boolean(foreground && isReaperForeground(foreground)),
+    );
+    if (verifiedReaperReply) {
+      appendAssistant(verifiedReaperReply, "REAPER live · verified local state");
+      await finishReply(verifiedReaperReply, "STUDIO");
+      return;
+    }
 
     const directIntent = parseDirectIntent(clean);
     if (directIntent) {
