@@ -213,6 +213,31 @@ fn fl_studio_bridge_status() -> daw_bridge::DawBridgeStatus {
 }
 
 #[tauri::command]
+fn daw_bridge_status(daw_id: String) -> Result<daw_bridge::DawBridgeStatus, String> {
+    daw_bridge::prepare_bridge(&daw_id)?;
+    Ok(daw_bridge::read_status(&daw_id))
+}
+
+#[tauri::command]
+fn prepare_daw_bridge(daw_id: String) -> Result<String, String> {
+    daw_bridge::prepare_bridge(&daw_id)
+}
+
+#[tauri::command]
+async fn daw_bridge_command(
+    daw_id: String,
+    id: String,
+    capability: String,
+    input: serde_json::Value,
+) -> Result<daw_bridge::DawCommandAck, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        daw_bridge::send_command(&daw_id, id, capability, input)
+    })
+    .await
+    .map_err(|error| format!("DAW bridge worker failed: {error}"))?
+}
+
+#[tauri::command]
 async fn fl_studio_command(
     id: String,
     capability: String,
@@ -308,6 +333,9 @@ pub fn run() {
             reaper_track_command,
             install_reaper_bridge,
             fl_studio_bridge_status,
+            daw_bridge_status,
+            prepare_daw_bridge,
+            daw_bridge_command,
             fl_studio_command,
             install_fl_studio_bridge,
             wake_word_status,
