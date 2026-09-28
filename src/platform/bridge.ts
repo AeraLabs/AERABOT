@@ -50,3 +50,51 @@ export async function listMonitors(): Promise<MonitorSnapshot[]> {
 export async function beginNativeDrag() {
   if (isTauriRuntime()) await getCurrentWindow().startDragging();
 }
+
+
+export interface ForegroundWindowBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ForegroundWindowSnapshot {
+  available: boolean;
+  appName: string | null;
+  appId: string | null;
+  processId: number | null;
+  title: string | null;
+  bounds: ForegroundWindowBounds | null;
+  minimized: boolean | null;
+  fullscreen: boolean | null;
+  coordinateSpace: "physical" | "logical";
+  geometrySource: "win32-dwm" | "macos-accessibility" | "none";
+  permissionRequired: boolean;
+  permissionGranted: boolean;
+  isAera: boolean;
+  error: string | null;
+}
+
+export async function getForegroundWindowSnapshot(): Promise<ForegroundWindowSnapshot> {
+  if (!isTauriRuntime()) {
+    return {
+      available: false,
+      appName: null,
+      appId: null,
+      processId: null,
+      title: null,
+      bounds: null,
+      minimized: null,
+      fullscreen: null,
+      coordinateSpace: "logical",
+      geometrySource: "none",
+      permissionRequired: false,
+      permissionGranted: false,
+      isAera: false,
+      error: "Foreground window awareness requires the desktop runtime.",
+    };
+  }
+
+  return invoke<ForegroundWindowSnapshot>("foreground_window_snapshot");
+}

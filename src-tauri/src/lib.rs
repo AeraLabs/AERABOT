@@ -1,4 +1,5 @@
 mod desktop_apps;
+mod foreground;
 mod local_ai;
 mod position;
 mod reaper_osc;
@@ -162,6 +163,11 @@ fn reaper_transport(action: String) -> Result<(), String> {
     reaper_osc::transport(&action)
 }
 
+#[tauri::command]
+fn foreground_window_snapshot() -> foreground::ForegroundWindowSnapshot {
+    foreground::snapshot()
+}
+
 #[cfg(target_os = "macos")]
 fn summon_shortcut() -> Shortcut {
     Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space)
@@ -224,7 +230,8 @@ pub fn run() {
             known_app_status,
             open_known_app,
             reaper_osc_status,
-            reaper_transport
+            reaper_transport,
+            foreground_window_snapshot
         ])
         .run(tauri::generate_context!())
         .expect("error while running AERA Orb");
