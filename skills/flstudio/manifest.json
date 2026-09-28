@@ -1,0 +1,31 @@
+{
+  "id": "flstudio",
+  "name": "FL Studio",
+  "version": "0.1.0",
+  "publisher": "AeraLabs",
+  "capabilities": [
+    "software.open"
+  ],
+  "platforms": [
+    "macos-arm64",
+    "macos-x86_64",
+    "windows-x86_64"
+  ],
+  "integrationPriority": [
+    "FL Studio MIDI Scripting Device API",
+    "virtual MIDI loopback",
+    "foreground-window awareness",
+    "accessibility fallback"
+  ],
+  "currentImplementation": {
+    "softwareDetection": true,
+    "launch": true,
+    "transport": false,
+    "trackControl": false,
+    "projectInspection": false
+  },
+  "permissions": {
+    "software.open": "safe"
+  },
+  "notes": "Phase 1 detects and launches FL Studio. Deep control should use Image-Line's bidirectional Python MIDI Scripting Device API rather than screen-coordinate automation."
+}

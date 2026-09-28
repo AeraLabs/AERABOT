@@ -12,25 +12,59 @@ function normalize(value: string) {
     .trim();
 }
 
-const REAPER_WORD = /\breaper\b/;
+const DAWS = [
+  {
+    id: "flstudio",
+    label: "FL Studio",
+    pattern: /\bfl\s*studio\b|\bfruit[y]?\s*loops\b/,
+  },
+  {
+    id: "protools",
+    label: "Pro Tools",
+    pattern: /\bpro\s*tools\b/,
+  },
+  {
+    id: "logic",
+    label: "Logic Pro",
+    pattern: /\blogic(?:\s*pro)?\b/,
+  },
+  {
+    id: "ableton",
+    label: "Ableton Live",
+    pattern: /\bableton(?:\s*live)?\b/,
+  },
+  {
+    id: "reaper",
+    label: "REAPER",
+    pattern: /\breaper\b/,
+  },
+] as const;
+
+function dawFromText(value: string) {
+  return DAWS.find((daw) => daw.pattern.test(value)) ?? null;
+}
 
 export function parseDirectIntent(text: string): DirectIntent | null {
   const value = normalize(text);
   if (!value) return null;
 
+  const daw = dawFromText(value);
+
   if (
-    REAPER_WORD.test(value) &&
+    daw &&
     /\b(open|launch|start up|start)\b/.test(value) &&
     !/\b(play|playing|playback|transport)\b/.test(value)
   ) {
     return {
       capability: "software.open",
-      input: { appId: "reaper" },
-      successMessage: "REAPER is open.",
+      input: { appId: daw.id },
+      successMessage: daw.label + " is open.",
     };
   }
 
-  const reaperContext = REAPER_WORD.test(value) || /\btransport\b/.test(value);
+  // Transport is real only for the REAPER Skill today.
+  const reaperContext =
+    daw?.id === "reaper" || (!daw && /\breaper\s+transport\b/.test(value));
   if (!reaperContext) return null;
 
   if (/\b(stop|halt)\b/.test(value)) {

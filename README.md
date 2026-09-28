@@ -83,12 +83,16 @@ The generic OpenAI-compatible adapter is intentionally restricted to `127.0.0.1`
 
 ### Real Skill execution
 
-The first software Skill is **REAPER**.
+The reference software Skill is **REAPER**, and the core DAW set now also includes **FL Studio, Pro Tools, Logic Pro, and Ableton Live**.
 
 Implemented:
 
-- detect REAPER
-- launch REAPER through a whitelisted native application bridge
+- detect and safely launch REAPER
+- detect and safely launch FL Studio
+- detect and safely launch Pro Tools
+- detect and safely launch Logic Pro on macOS
+- detect and safely launch Ableton Live
+- launch DAWs through a whitelisted native application bridge
 - play transport through loopback OSC
 - stop transport through loopback OSC
 - pause transport through loopback OSC
@@ -237,7 +241,11 @@ These are still future work:
 - screen/application visual inspection
 - REAPER mutating track operations beyond transport
 - deeper DAW operations such as arm/mute/solo/parameters
-- WAVR/Ableton/FL Studio/Pro Tools Skills
+- deep FL Studio MIDI Scripting adapter
+- Pro Tools Scripting SDK adapter
+- Logic OSC/Lua control-surface adapter
+- Ableton Live API/Max for Live adapter
+- WAVR first-party Skill
 - Unreal/Blender Skills
 - architecture-aware updater
 - release signing and macOS notarization
@@ -261,13 +269,18 @@ src-tauri/
   icons/          app assets
 
 skills/
-  reaper/         Skill manifest
+  reaper/         REAPER manifest + ReaScript bridge
+  flstudio/       FL Studio Skill manifest
+  protools/       Pro Tools Skill manifest
+  logic/          Logic Pro Skill manifest
+  ableton/        Ableton Live Skill manifest
 
 docs/
   ARCHITECTURE.md
   LOCAL_AI.md
   PLATFORM_SUPPORT.md
   REAPER_SKILL.md
+  DAW_SKILLS.md
 ```
 
 The design rule remains simple:

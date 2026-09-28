@@ -46,6 +46,12 @@ import {
   reaperTransportLabel,
   type ReaperBridgeStatus,
 } from "./platform/reaperState";
+import {
+  abletonSkill,
+  flStudioSkill,
+  logicSkill,
+  proToolsSkill,
+} from "./skills/dawLaunch";
 import { reaperSkill } from "./skills/reaper";
 
 type TranscriptEntry = {
@@ -73,6 +79,10 @@ export function App() {
   const runtime = useMemo(() => {
     const instance = new AeraRuntime();
     instance.skills.register(reaperSkill);
+    instance.skills.register(flStudioSkill);
+    instance.skills.register(proToolsSkill);
+    instance.skills.register(logicSkill);
+    instance.skills.register(abletonSkill);
     return instance;
   }, []);
   const recorderRef = useRef<PcmRecorder | null>(null);
@@ -90,6 +100,7 @@ export function App() {
   const [providers, setProviders] = useState<LocalProviderStatus[]>([]);
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
   const [reaperStatus, setReaperStatus] = useState<KnownAppStatus | null>(null);
+  const [dawStatuses, setDawStatuses] = useState<KnownAppStatus[]>([]);
   const [reaperOscStatus, setReaperOscStatus] = useState<ReaperOscStatus | null>(null);
   const [reaperBridge, setReaperBridge] = useState<ReaperBridgeStatus | null>(null);
   const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
@@ -111,16 +122,25 @@ export function App() {
 
   const refreshLocalServices = async () => {
     setServiceBusy(true);
-    const [aiResult, speechResult, reaperResult, oscResult] = await Promise.allSettled([
+    const [aiResult, speechResult, dawsResult, oscResult] = await Promise.allSettled([
       probeLocalAI(),
       probeLocalSpeech(),
-      getKnownAppStatus("reaper"),
+      Promise.all(
+        ["reaper", "flstudio", "protools", "logic", "ableton"].map((appId) =>
+          getKnownAppStatus(appId),
+        ),
+      ),
       getReaperOscStatus(),
     ]);
 
     if (aiResult.status === "fulfilled") setProviders(aiResult.value);
     if (speechResult.status === "fulfilled") setSpeechStatus(speechResult.value);
-    if (reaperResult.status === "fulfilled") setReaperStatus(reaperResult.value);
+    if (dawsResult.status === "fulfilled") {
+      setDawStatuses(dawsResult.value);
+      setReaperStatus(
+        dawsResult.value.find((status) => status.id === "reaper") ?? null,
+      );
+    }
     if (oscResult.status === "fulfilled") setReaperOscStatus(oscResult.value);
     setServiceBusy(false);
   };
@@ -665,10 +685,22 @@ export function App() {
                 VOICE
               </span>
               <span
-                className={reaperStatus?.installed ? "service-on" : "service-off"}
-                title={reaperStatus?.installed ? "REAPER Skill ready" : "REAPER not detected"}
+                className={
+                  dawStatuses.some((status) => status.installed)
+                    ? "service-on"
+                    : "service-off"
+                }
+                title={
+                  dawStatuses.length > 0
+                    ? "Detected DAWs: " +
+                      (dawStatuses
+                        .filter((status) => status.installed)
+                        .map((status) => status.name)
+                        .join(", ") || "none")
+                    : "DAW detection pending"
+                }
               >
-                REAPER
+                DAW {dawStatuses.filter((status) => status.installed).length}/5
               </span>
               <span
                 className={reaperOscStatus?.enabled ? "service-on" : "service-off"}

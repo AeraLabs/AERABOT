@@ -1,0 +1,31 @@
+{
+  "id": "ableton",
+  "name": "Ableton Live",
+  "version": "0.1.0",
+  "publisher": "AeraLabs",
+  "capabilities": [
+    "software.open"
+  ],
+  "platforms": [
+    "macos-arm64",
+    "macos-x86_64",
+    "windows-x86_64"
+  ],
+  "integrationPriority": [
+    "Max for Live Live API",
+    "Live Object Model",
+    "Control Surface scripts",
+    "MIDI fallback"
+  ],
+  "currentImplementation": {
+    "softwareDetection": true,
+    "launch": true,
+    "transport": false,
+    "trackControl": false,
+    "projectInspection": false
+  },
+  "permissions": {
+    "software.open": "safe"
+  },
+  "notes": "Phase 1 detects and launches Ableton Live. Deep control should use the Live API/Live Object Model through a companion Max for Live device, with control-surface scripts as a secondary path."
+}

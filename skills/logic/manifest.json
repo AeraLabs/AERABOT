@@ -1,0 +1,30 @@
+{
+  "id": "logic",
+  "name": "Logic Pro",
+  "version": "0.1.0",
+  "publisher": "AeraLabs",
+  "capabilities": [
+    "software.open"
+  ],
+  "platforms": [
+    "macos-arm64",
+    "macos-x86_64"
+  ],
+  "integrationPriority": [
+    "Logic Pro OSC control surfaces",
+    "Logic Lua control-surface scripting",
+    "MIDI/MMC where appropriate",
+    "macOS Accessibility fallback"
+  ],
+  "currentImplementation": {
+    "softwareDetection": true,
+    "launch": true,
+    "transport": false,
+    "trackControl": false,
+    "projectInspection": false
+  },
+  "permissions": {
+    "software.open": "safe"
+  },
+  "notes": "Phase 1 detects and launches Logic Pro. Deep control should use Logic's supported control-surface layer, including Lua-backed assignments and UDP/IPv4 OSC."
+}
