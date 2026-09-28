@@ -1,3 +1,4 @@
+mod desktop_apps;
 mod local_ai;
 mod speech;
 
@@ -139,6 +140,16 @@ async fn synthesize_speech(text: String) -> Result<Vec<u8>, String> {
     speech::synthesize(text).await
 }
 
+#[tauri::command]
+fn known_app_status(app_id: String) -> Result<desktop_apps::KnownAppStatus, String> {
+    desktop_apps::status(&app_id)
+}
+
+#[tauri::command]
+fn open_known_app(app_id: String) -> Result<(), String> {
+    desktop_apps::open(&app_id)
+}
+
 #[cfg(target_os = "macos")]
 fn summon_shortcut() -> Shortcut {
     Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space)
@@ -188,7 +199,9 @@ pub fn run() {
             local_chat,
             probe_local_speech,
             transcribe_audio,
-            synthesize_speech
+            synthesize_speech,
+            known_app_status,
+            open_known_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running AERA Orb");

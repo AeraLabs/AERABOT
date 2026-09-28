@@ -5,6 +5,7 @@ export interface ProposedAction {
   capability: string;
   description: string;
   risk: RiskClass;
+  input?: unknown;
   before?: unknown;
   after?: unknown;
 }
