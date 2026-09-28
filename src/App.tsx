@@ -370,6 +370,42 @@ export function App() {
     runtime.notify(reply);
   };
 
+  const verifiedActionReply = (
+    capability: string,
+    executionResult: unknown,
+    confirmedMessage: string,
+  ) => {
+    if (!capability.startsWith("transport.")) return confirmedMessage;
+
+    const evidence = (executionResult ?? {}) as {
+      bridgeConnected?: boolean;
+      verified?: boolean;
+      observedTransport?: string | null;
+    };
+
+    if (evidence.verified) return confirmedMessage;
+
+    const requested = capability.split(".")[1] ?? "transport command";
+    if (evidence.bridgeConnected) {
+      return (
+        "I sent " +
+        requested +
+        " to REAPER, but the live bridge did not confirm the requested state" +
+        (evidence.observedTransport
+          ? " · it currently reports " + evidence.observedTransport
+          : "") +
+        "."
+      );
+    }
+
+    return (
+      "I sent " +
+      requested +
+      " to REAPER. The live bridge is not running, so I can’t independently confirm the transport state yet."
+    );
+  };
+
+
 
   const processInput = async (value: string) => {
     const clean = value.trim();
@@ -413,7 +449,11 @@ export function App() {
 
       const result = await runtime.execute(action);
       const reply = result.ok
-        ? directIntent.successMessage
+        ? verifiedActionReply(
+            directIntent.capability,
+            result.result,
+            directIntent.successMessage,
+          )
         : "I couldn't complete that command: " +
           ("error" in result && result.error
             ? result.error
@@ -492,7 +532,11 @@ export function App() {
         } else {
           const result = await runtime.execute(action);
           if (result.ok) {
-            reply = plan.message;
+            reply = verifiedActionReply(
+              plan.capability,
+              result.result,
+              plan.message,
+            );
             if (plan.capability === "software.open") {
               setReaperStatus((current) =>
                 current ? { ...current, installed: true } : current,
