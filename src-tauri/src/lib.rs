@@ -177,6 +177,20 @@ fn reaper_state_snapshot() -> reaper_state::ReaperBridgeStatus {
 }
 
 #[tauri::command]
+async fn reaper_track_command(
+    id: String,
+    track_guid: String,
+    operation: String,
+    value: bool,
+) -> Result<reaper_state::ReaperTrackCommandOutcome, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        reaper_state::send_track_command(id, track_guid, operation, value)
+    })
+    .await
+    .map_err(|error| format!("REAPER track command worker failed: {error}"))?
+}
+
+#[tauri::command]
 fn foreground_window_snapshot() -> foreground::ForegroundWindowSnapshot {
     foreground::snapshot()
 }
@@ -256,6 +270,7 @@ pub fn run() {
             reaper_osc_status,
             reaper_transport,
             reaper_state_snapshot,
+            reaper_track_command,
             install_reaper_bridge,
             foreground_window_snapshot,
             request_foreground_permission
