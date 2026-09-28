@@ -1,5 +1,6 @@
 import { localChat, type ChatMessage, type LocalChatRequest, type LocalChatResponse } from "./local";
 import { AERA_SYSTEM_PROMPT } from "./prompt";
+import type { PlannerActionDescriptor } from "../core/skills";
 
 export type PlannedReply = {
   kind: "reply";
@@ -15,14 +16,23 @@ export type PlannedAction = {
 
 export type AeraPlan = PlannedReply | PlannedAction;
 
-const ALLOWED = new Set([
-  "software.open",
-  "transport.play",
-  "transport.stop",
-  "transport.pause",
-]);
+function buildActionProtocol(actions: PlannerActionDescriptor[]) {
+  const actionText =
+    actions.length === 0
+      ? "No desktop actions are currently available."
+      : actions
+          .map(
+            (action) =>
+              "- " +
+              action.capability +
+              ": " +
+              action.description +
+              "\n  input example: " +
+              JSON.stringify(action.inputExample),
+          )
+          .join("\n");
 
-const ACTION_PROTOCOL = `
+  return `
 You are also AERA's intent planner.
 
 Return exactly one JSON object and no markdown.
@@ -30,20 +40,22 @@ Return exactly one JSON object and no markdown.
 For a normal conversational answer:
 {"kind":"reply","message":"your concise answer"}
 
-Allowed REAPER actions:
-{"kind":"action","capability":"software.open","input":{"appId":"reaper"},"message":"Opening REAPER."}
-{"kind":"action","capability":"transport.play","input":{"appId":"reaper"},"message":"Playing."}
-{"kind":"action","capability":"transport.stop","input":{"appId":"reaper"},"message":"Stopping."}
-{"kind":"action","capability":"transport.pause","input":{"appId":"reaper"},"message":"Pausing."}
+Available desktop actions:
+${actionText}
+
+For an action, use:
+{"kind":"action","capability":"one exact available capability","input":{...},"message":"short acknowledgement"}
 
 Rules:
-- Use an action only when the user explicitly requests that operation in REAPER, or REAPER is unambiguous from the immediately preceding conversation.
-- Never invent another capability.
-- Never put file paths, shell commands, executable names, URLs, scripts, keyboard shortcuts, OSC addresses, or code in input.
-- A question about how REAPER works is a reply, not an action.
+- Use an action only when the user clearly requests it.
+- Never invent a capability not listed above.
+- Treat input examples as the permitted shape; do not add unrelated fields.
+- Never put file paths, shell commands, executable names, URLs, scripts, keyboard shortcuts, OSC addresses, or code in input unless a future Skill explicitly advertises such a field.
+- Questions about software are replies, not actions.
 - If you are unsure, use kind=reply.
-- The runtime decides whether an action is permitted and whether it actually succeeded.
+- The runtime and Skill independently validate the request and decide whether it actually executes.
 `.trim();
+}
 
 function stripFence(text: string) {
   const trimmed = text.trim();
@@ -54,7 +66,10 @@ function stripFence(text: string) {
     .trim();
 }
 
-export function parsePlan(text: string): AeraPlan {
+export function parsePlan(
+  text: string,
+  allowedActions: PlannerActionDescriptor[],
+): AeraPlan {
   let parsed: unknown;
 
   try {
@@ -73,19 +88,23 @@ export function parsePlan(text: string): AeraPlan {
     const capability =
       typeof candidate.capability === "string" ? candidate.capability : "";
     const input =
-      candidate.input && typeof candidate.input === "object"
+      candidate.input && typeof candidate.input === "object" && !Array.isArray(candidate.input)
         ? (candidate.input as Record<string, unknown>)
-        : {};
+        : null;
 
-    if (ALLOWED.has(capability) && input.appId === "reaper") {
+    const advertised = allowedActions.some(
+      (action) => action.capability === capability,
+    );
+
+    if (advertised && input) {
       return {
         kind: "action",
         capability,
-        input: { appId: "reaper" },
+        input,
         message:
           typeof candidate.message === "string"
             ? candidate.message
-            : "Running the REAPER action.",
+            : "Running the requested action.",
       };
     }
 
@@ -104,15 +123,19 @@ export function parsePlan(text: string): AeraPlan {
 
 export async function planWithLocalModel(
   request: Omit<LocalChatRequest, "messages"> & { messages: ChatMessage[] },
+  allowedActions: PlannerActionDescriptor[],
 ): Promise<{ plan: AeraPlan; response: LocalChatResponse }> {
   const response = await localChat({
     provider: request.provider,
     model: request.model,
     messages: [
-      { role: "system", content: AERA_SYSTEM_PROMPT + "\n\n" + ACTION_PROTOCOL },
+      {
+        role: "system",
+        content: AERA_SYSTEM_PROMPT + "\n\n" + buildActionProtocol(allowedActions),
+      },
       ...request.messages,
     ],
   });
 
-  return { plan: parsePlan(response.content), response };
+  return { plan: parsePlan(response.content, allowedActions), response };
 }

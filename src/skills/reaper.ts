@@ -22,6 +22,28 @@ export const reaperSkill: Skill = {
   name: "REAPER",
   version: "0.2.0",
   capabilities: ["software.open", ...TRANSPORT.keys()],
+  plannerActions: [
+    {
+      capability: "software.open",
+      description: "Open or launch REAPER when the user explicitly asks to open REAPER.",
+      inputExample: { appId: "reaper" },
+    },
+    {
+      capability: "transport.play",
+      description: "Start or resume REAPER transport playback.",
+      inputExample: { appId: "reaper" },
+    },
+    {
+      capability: "transport.stop",
+      description: "Stop REAPER transport playback.",
+      inputExample: { appId: "reaper" },
+    },
+    {
+      capability: "transport.pause",
+      description: "Pause REAPER transport playback.",
+      inputExample: { appId: "reaper" },
+    },
+  ],
 
   supports(context: SkillContext) {
     return context.platform === "macOS" || context.platform === "Windows";

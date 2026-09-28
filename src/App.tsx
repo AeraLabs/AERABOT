@@ -209,14 +209,17 @@ export function App() {
     }));
 
     try {
-      const { plan, response } = await planWithLocalModel({
-        provider: provider.id,
-        model,
-        messages: [
-          ...history,
-          { role: "user", content: clean },
-        ],
-      });
+      const { plan, response } = await planWithLocalModel(
+        {
+          provider: provider.id,
+          model,
+          messages: [
+            ...history,
+            { role: "user", content: clean },
+          ],
+        },
+        runtime.skills.plannerCatalog(),
+      );
 
       const meta =
         response.elapsedMs > 0
