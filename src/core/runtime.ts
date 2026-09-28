@@ -14,6 +14,10 @@ export type RuntimeEvent =
   | { type: "action-rejected"; action: ProposedAction }
   | { type: "action-undone"; action: ProposedAction };
 
+export type UndoResult =
+  | { ok: true; action: ProposedAction }
+  | { ok: false; error: string };
+
 type Listener = (event: RuntimeEvent) => void;
 
 export class AeraRuntime {
@@ -99,7 +103,7 @@ export class AeraRuntime {
     }
   }
 
-  async undoLast() {
+  async undoLast(): Promise<UndoResult> {
     const entry = this.journal
       .list()
       .find(
