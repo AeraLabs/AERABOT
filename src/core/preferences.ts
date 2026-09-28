@@ -102,10 +102,7 @@ export function loadPreferences(): AeraPreferences {
         typeof parsed.onboardingComplete === "boolean"
           ? parsed.onboardingComplete
           : DEFAULT_PREFERENCES.onboardingComplete,
-      visualContextEnabled:
-        typeof parsed.visualContextEnabled === "boolean"
-          ? parsed.visualContextEnabled
-          : DEFAULT_PREFERENCES.visualContextEnabled,
+      visualContextEnabled: DEFAULT_PREFERENCES.visualContextEnabled,
       visualModel:
         typeof parsed.visualModel === "string"
           ? parsed.visualModel
