@@ -157,7 +157,8 @@ export function App() {
   };
 
   const appendAssistant = (content: string, meta?: string) => {
-    setTranscript((current) => [...current, { role: "assistant", content, meta }].slice(-30));
+    const entry: TranscriptEntry = { role: "assistant", content, meta };
+    setTranscript((current) => [...current, entry].slice(-30));
   };
 
   const processInput = async (value: string) => {
@@ -165,7 +166,8 @@ export function App() {
     if (!clean) return;
 
     await unlockAudio().catch(() => undefined);
-    setTranscript((current) => [...current, { role: "user", content: clean }].slice(-30));
+    const userEntry: TranscriptEntry = { role: "user", content: clean };
+    setTranscript((current) => [...current, userEntry].slice(-30));
     runtime.notify("“" + clean + "”");
 
     if (await runtime.runInternalCommand(clean)) return;
