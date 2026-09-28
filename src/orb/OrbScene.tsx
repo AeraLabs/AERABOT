@@ -5,6 +5,7 @@ import type {
   PresenceStyle,
 } from "../core/preferences";
 import { DEFAULT_ORB_PALETTE } from "../core/preferences";
+import { choreographyFor } from "./choreography";
 import { PRESENCE_PROFILES } from "./palette";
 import type { OrbState } from "./state";
 import { visualFor } from "./state";
@@ -324,6 +325,7 @@ export function OrbScene({
 
       const currentState = stateRef.current;
       const v = visualFor(currentState);
+      const choreography = choreographyFor(currentState);
       const presenceProfile = PRESENCE_PROFILES[presenceRef.current];
       const motion = reducedMotion ? 0 : presenceProfile.motion;
 
@@ -368,14 +370,12 @@ export function OrbScene({
         smooth,
       );
 
-      const listeningLift =
-        currentState === "LISTENING" ? 0.035 * Math.sin(now / 115) : 0;
-      const speakingPulse =
-        currentState === "SPEAKING"
-          ? 0.025 * Math.sin(now / 75)
-          : 0;
+      const stateBreath =
+        Math.sin(now / (currentState === "SPEAKING" ? 75 : 118)) *
+        0.026 *
+        choreography.corePulse;
       const expressivePulse =
-        (listeningLift + speakingPulse) * presenceProfile.motion;
+        stateBreath * presenceProfile.motion;
 
       group.scale.setScalar(
         currentScale + transitionPulse * 0.055 + expressivePulse,
@@ -395,14 +395,22 @@ export function OrbScene({
       shellMaterial.opacity =
         0.46 + currentOpacity * 0.31 + transitionPulse * 0.045;
       coreMaterial.opacity =
-        0.08 +
-        v.glow * 0.08 +
+        0.07 +
+        v.glow * 0.075 +
         transitionPulse * 0.12 +
-        (currentState === "THINKING" ? 0.05 : 0);
+        choreography.corePulse * 0.045;
+      core.scale.setScalar(
+        choreography.coreScale +
+          Math.sin(now / 140) *
+            0.025 *
+            choreography.corePulse *
+            presenceProfile.motion,
+      );
       particleMaterial.opacity =
         v.particleIntensity *
         0.72 *
-        presenceProfile.particles;
+        presenceProfile.particles *
+        choreography.particleGain;
       particleMaterial.size =
         0.022 + transitionPulse * 0.008;
 
@@ -414,22 +422,50 @@ export function OrbScene({
       ringMaterials[2].opacity =
         ringBase * 0.62 + transitionPulse * 0.1;
 
+      const ambientHalo =
+        (currentState === "SPEAKING" || currentState === "LISTENING"
+          ? 0.045 + Math.max(0, Math.sin(now / 115)) * 0.035
+          : 0) * choreography.halo;
       haloMaterial.opacity =
-        Math.min(0.48, transitionPulse * 0.28 * presenceProfile.bloom);
-      const haloScale = 1 + (1 - transitionPulse) * 0.17;
+        Math.min(
+          0.5,
+          transitionPulse *
+            0.28 *
+            presenceProfile.bloom *
+            choreography.halo +
+            ambientHalo,
+        );
+      const haloScale =
+        1 +
+        (1 - transitionPulse) * 0.17 +
+        Math.max(0, Math.sin(now / 170)) * 0.025 * choreography.halo;
       halo.scale.setScalar(haloScale);
+
+      const ringScale =
+        choreography.ringScale +
+        Math.sin(now / 155) *
+          0.014 *
+          choreography.corePulse *
+          presenceProfile.motion;
+      rings.forEach((ring) => ring.scale.setScalar(ringScale));
 
       if (!reducedMotion) {
         const orbit = presenceProfile.orbit;
         group.rotation.y += dt * 0.105 * v.energySpeed * motion;
         group.rotation.x = THREE.MathUtils.lerp(
           group.rotation.x,
-          -pointerY * 0.095 * presenceProfile.hover,
+          -pointerY *
+            0.095 *
+            presenceProfile.hover *
+            choreography.pointerResponse,
           smooth * 0.45,
         );
         group.rotation.z = THREE.MathUtils.lerp(
           group.rotation.z,
-          pointerX * 0.075 * presenceProfile.hover,
+          pointerX *
+            0.075 *
+            presenceProfile.hover *
+            choreography.pointerResponse,
           smooth * 0.45,
         );
         energy.rotation.x -=
@@ -443,20 +479,30 @@ export function OrbScene({
         particles.rotation.y -=
           dt * 0.14 * v.energySpeed * motion;
 
-        rings[0].rotation.z += dt * 0.055 * orbit;
-        rings[1].rotation.y -= dt * 0.07 * orbit;
-        rings[2].rotation.x += dt * 0.045 * orbit;
+        rings[0].rotation.z +=
+          dt * 0.055 * orbit * choreography.ringSpin;
+        rings[1].rotation.y -=
+          dt * 0.07 * orbit * choreography.ringSpin;
+        rings[2].rotation.x +=
+          dt * 0.045 * orbit * choreography.ringSpin;
 
         const breath =
           Math.sin((now / 1000) * (0.82 + v.energySpeed * 0.16)) *
           v.movementAmplitude *
-          motion;
+          motion *
+          choreography.drift;
         group.position.y = breath;
+        const errorJitter =
+          currentState === "ERROR"
+            ? Math.sin(now / 21) * 0.006 * motion
+            : 0;
         group.position.x =
           Math.sin(now / 2100) *
-          v.movementAmplitude *
-          0.32 *
-          presenceProfile.motion;
+            v.movementAmplitude *
+            0.32 *
+            presenceProfile.motion *
+            choreography.drift +
+          errorJitter;
       } else {
         group.rotation.set(0, 0, 0);
         group.position.set(0, 0, 0);
@@ -466,12 +512,7 @@ export function OrbScene({
         ringGeometry.attributes.position as THREE.BufferAttribute;
       for (let i = 0; i < ringCount; i += 1) {
         const angle = (i / ringCount) * Math.PI * 2;
-        const stateGain =
-          currentState === "LISTENING"
-            ? 1.22
-            : currentState === "SPEAKING"
-              ? 1.3
-              : 1;
+        const stateGain = choreography.waveform;
         const waveform =
           Math.sin(
             angle * 5 +
@@ -491,7 +532,10 @@ export function OrbScene({
           0.84 +
           waveform +
           secondary +
-          transitionPulse * 0.035;
+          transitionPulse * 0.035 +
+          (currentState === "SPEAKING"
+            ? Math.max(0, Math.sin(now / 90)) * 0.015
+            : 0);
         ringAttr.setXYZ(
           i,
           Math.cos(angle) * radius,
