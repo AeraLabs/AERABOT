@@ -3,6 +3,8 @@ export type MotionPreference = "system" | "reduce" | "full";
 export type AiProviderPreference = "auto" | "ollama" | "llamacpp" | "openai_local";
 export type TalkBackPreference = "auto" | "text" | "voice";
 export type PresenceStyle = "serene" | "balanced" | "expressive";
+export type OrbSizePreference = "compact" | "standard" | "large";
+export type SpatialBehavior = "quiet" | "adaptive" | "companion";
 
 export interface OrbPalette {
   primary: string;
@@ -26,6 +28,8 @@ export interface AeraPreferences {
   spatialAwareness: boolean;
   presenceStyle: PresenceStyle;
   orbPalette: OrbPalette;
+  orbSize: OrbSizePreference;
+  spatialBehavior: SpatialBehavior;
 }
 
 const STORAGE_KEY = "aera.preferences.v1";
@@ -40,6 +44,8 @@ export const DEFAULT_PREFERENCES: AeraPreferences = {
   spatialAwareness: true,
   presenceStyle: "balanced",
   orbPalette: DEFAULT_ORB_PALETTE,
+  orbSize: "standard",
+  spatialBehavior: "adaptive",
 };
 
 export function loadPreferences(): AeraPreferences {
@@ -72,6 +78,14 @@ export function loadPreferences(): AeraPreferences {
         ? (parsed.presenceStyle as PresenceStyle)
         : DEFAULT_PREFERENCES.presenceStyle,
       orbPalette: sanitizeOrbPalette(parsed.orbPalette),
+      orbSize: ["compact", "standard", "large"].includes(parsed.orbSize ?? "")
+        ? (parsed.orbSize as OrbSizePreference)
+        : DEFAULT_PREFERENCES.orbSize,
+      spatialBehavior: ["quiet", "adaptive", "companion"].includes(
+        parsed.spatialBehavior ?? "",
+      )
+        ? (parsed.spatialBehavior as SpatialBehavior)
+        : DEFAULT_PREFERENCES.spatialBehavior,
     };
   } catch {
     return DEFAULT_PREFERENCES;

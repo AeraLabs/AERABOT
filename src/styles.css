@@ -613,12 +613,13 @@ button, input, select { font: inherit; }
 .presence-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   gap: 7px;
   align-items: end;
 }
 
 .presence-row label {
+  min-width: 0;
   display: grid;
   gap: 4px;
   color: rgba(210, 231, 236, 0.48);

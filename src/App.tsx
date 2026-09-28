@@ -20,10 +20,14 @@ import {
   type AiProviderPreference,
   type GraphicsQuality,
   type MotionPreference,
+  type OrbSizePreference,
   type PresenceStyle,
+  type SpatialBehavior,
   type TalkBackPreference,
 } from "./core/preferences";
+import { ORB_SIZE_MULTIPLIERS, SPATIAL_BEHAVIOR } from "./core/appearance";
 import { parseDirectIntent } from "./core/directIntent";
+import { parsePreferenceIntent } from "./core/preferenceIntent";
 import { answerVerifiedReaperQuery } from "./core/reaperQueries";
 import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
 import { OrbScene } from "./orb/OrbScene";
@@ -279,25 +283,19 @@ export function App() {
       return;
     }
 
-    const passiveStates: OrbState[] = [
-      "IDLE",
-      "AMBIENT",
-      "STUDIO",
-      "DND",
-      "SLEEPING",
-    ];
-    if (!passiveStates.includes(state)) return;
+    const behavior = SPATIAL_BEHAVIOR[preferences.spatialBehavior];
+    if (!behavior.activeStates.has(state)) return;
     if (Date.now() < manualSpatialHoldUntilRef.current) return;
 
-    const key = quantizedWindowKey(
-      foreground.appId,
-      null,
-      foreground.bounds,
-    );
+    const key = behavior.reactsToGeometry
+      ? quantizedWindowKey(foreground.appId, null, foreground.bounds)
+      : foreground.appId ?? foreground.appName ?? "unknown";
     if (key === lastSpatialKeyRef.current) return;
-    if (Date.now() - lastSpatialMoveRef.current < 1800) return;
+    if (Date.now() - lastSpatialMoveRef.current < behavior.cooldownMs) return;
 
-    const orbSize = visualFor(state).nativeDiameter + 64;
+    const orbSize =
+      (visualFor(state).nativeDiameter + 64) *
+      ORB_SIZE_MULTIPLIERS[preferences.orbSize];
     const target = planSpatialTarget(foreground, monitors, orbSize, 18);
     if (!target) return;
 
@@ -308,7 +306,9 @@ export function App() {
     foreground,
     monitors,
     panelOpen,
+    preferences.orbSize,
     preferences.spatialAwareness,
+    preferences.spatialBehavior,
     reducedMotion,
     state,
   ]);
@@ -324,9 +324,12 @@ export function App() {
   }, [activeProvider, availableModels, preferences.aiModel]);
 
   useEffect(() => {
-    const diameter = panelOpen ? 552 : visualFor(state).nativeDiameter + 64;
+    const diameter = panelOpen
+      ? 552
+      : (visualFor(state).nativeDiameter + 64) *
+        ORB_SIZE_MULTIPLIERS[preferences.orbSize];
     resizeOrbHost(diameter).catch(() => undefined);
-  }, [panelOpen, state]);
+  }, [panelOpen, preferences.orbSize, state]);
 
   const patchPreferences = (patch: Partial<AeraPreferences>) => {
     setPreferences((current) => ({ ...current, ...patch }));
@@ -1034,6 +1037,40 @@ export function App() {
                   <option value="expressive">Expressive</option>
                 </select>
               </label>
+
+              <label>
+                <span>Physical size</span>
+                <select
+                  value={preferences.orbSize}
+                  onChange={(event) =>
+                    patchPreferences({
+                      orbSize: event.target.value as OrbSizePreference,
+                    })
+                  }
+                >
+                  <option value="compact">Compact</option>
+                  <option value="standard">Standard</option>
+                  <option value="large">Large</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Desktop behavior</span>
+                <select
+                  value={preferences.spatialBehavior}
+                  onChange={(event) =>
+                    patchPreferences({
+                      spatialAwareness: true,
+                      spatialBehavior: event.target.value as SpatialBehavior,
+                    })
+                  }
+                >
+                  <option value="quiet">Quiet</option>
+                  <option value="adaptive">Adaptive</option>
+                  <option value="companion">Companion</option>
+                </select>
+              </label>
+
               <button type="button" onClick={resetOrbAppearance}>
                 Reset look
               </button>
