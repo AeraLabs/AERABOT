@@ -139,3 +139,9 @@ export async function getForegroundWindowSnapshot(): Promise<ForegroundWindowSna
 
   return invoke<ForegroundWindowSnapshot>("foreground_window_snapshot");
 }
+
+
+export async function requestForegroundPermission(): Promise<boolean> {
+  if (!isTauriRuntime()) return false;
+  return invoke<boolean>("request_foreground_permission");
+}
