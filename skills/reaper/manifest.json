@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "publisher": "AeraLabs",
   "capabilities": [
-    "software.open"
+    "software.open",
+    "transport.play",
+    "transport.stop",
+    "transport.pause"
   ],
   "platforms": [
     "macos-arm64",
@@ -20,12 +23,15 @@
   "currentImplementation": {
     "softwareDetection": true,
     "launch": true,
-    "transport": false,
+    "transport": true,
     "trackControl": false,
     "projectInspection": false
   },
   "permissions": {
-    "software.open": "safe"
+    "software.open": "safe",
+    "transport.play": "safe",
+    "transport.stop": "safe",
+    "transport.pause": "safe"
   },
-  "notes": "Phase 1 REAPER Skill deliberately implements only real detection and launch. Transport/project operations are not advertised until backed by a real ReaScript or OSC bridge."
+  "notes": "REAPER detection/launch is native and whitelisted. Transport uses optional loopback-only OSC when AERA_REAPER_OSC_ENABLED=1; track/project operations remain disabled until backed by validated OSC/ReaScript bridges."
 }

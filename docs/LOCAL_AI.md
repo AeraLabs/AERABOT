@@ -119,3 +119,43 @@ The model cannot supply executable paths or arbitrary commands.
 ## Model licensing
 
 AERA does not bundle model weights in this repository. Different models have different licenses. The provider discovers what the user has installed; distribution and model-license decisions remain separate from the AERA runtime.
+
+
+## REAPER OSC transport
+
+AERA's first real DAW-control path uses REAPER's supported OSC control-surface system rather than mouse automation.
+
+The current transport bridge supports:
+
+- `transport.play` -> `/play`
+- `transport.stop` -> `/stop`
+- `transport.pause` -> `/pause`
+
+It is **disabled by default** because REAPER itself must be configured to receive OSC.
+
+In REAPER:
+
+1. Open **Options -> Preferences -> Control/OSC/Web**.
+2. Add an **OSC (Open Sound Control)** surface.
+3. Configure REAPER to listen locally for commands.
+4. Use a local listen port (AERA defaults to `8000`).
+
+Then launch AERA with:
+
+### macOS
+
+```bash
+export AERA_REAPER_OSC_ENABLED=1
+export AERA_REAPER_OSC_PORT=8000
+```
+
+### Windows PowerShell
+
+```powershell
+$env:AERA_REAPER_OSC_ENABLED = "1"
+$env:AERA_REAPER_OSC_PORT = "8000"
+```
+
+AERA always sends these OSC commands to `127.0.0.1`. There is no setting that allows the REAPER Skill to target another machine.
+
+The language model still cannot emit arbitrary OSC addresses. The REAPER Skill maps semantic capabilities to a fixed native allowlist.

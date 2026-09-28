@@ -25,6 +25,7 @@ import {
   resizeOrbHost,
   type SystemProfile,
 } from "./platform/bridge";
+import { getReaperOscStatus, type ReaperOscStatus } from "./platform/reaperOsc";
 import { reaperSkill } from "./skills/reaper";
 
 type TranscriptEntry = {
@@ -66,6 +67,7 @@ export function App() {
   const [providers, setProviders] = useState<LocalProviderStatus[]>([]);
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
   const [reaperStatus, setReaperStatus] = useState<KnownAppStatus | null>(null);
+  const [reaperOscStatus, setReaperOscStatus] = useState<ReaperOscStatus | null>(null);
   const [serviceBusy, setServiceBusy] = useState(false);
   const [systemReducedMotion, setSystemReducedMotion] = useState(systemPrefersReducedMotion);
   const [preferences, setPreferences] = useState<AeraPreferences>(loadPreferences);
@@ -83,15 +85,17 @@ export function App() {
 
   const refreshLocalServices = async () => {
     setServiceBusy(true);
-    const [aiResult, speechResult, reaperResult] = await Promise.allSettled([
+    const [aiResult, speechResult, reaperResult, oscResult] = await Promise.allSettled([
       probeLocalAI(),
       probeLocalSpeech(),
       getKnownAppStatus("reaper"),
+      getReaperOscStatus(),
     ]);
 
     if (aiResult.status === "fulfilled") setProviders(aiResult.value);
     if (speechResult.status === "fulfilled") setSpeechStatus(speechResult.value);
     if (reaperResult.status === "fulfilled") setReaperStatus(reaperResult.value);
+    if (oscResult.status === "fulfilled") setReaperOscStatus(oscResult.value);
     setServiceBusy(false);
   };
 
@@ -371,6 +375,16 @@ export function App() {
                 title={reaperStatus?.installed ? "REAPER Skill ready" : "REAPER not detected"}
               >
                 REAPER
+              </span>
+              <span
+                className={reaperOscStatus?.enabled ? "service-on" : "service-off"}
+                title={
+                  reaperOscStatus?.enabled
+                    ? "REAPER OSC armed on loopback port " + reaperOscStatus.port
+                    : "REAPER OSC disabled"
+                }
+              >
+                OSC
               </span>
               <button
                 type="button"

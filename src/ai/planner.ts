@@ -15,6 +15,13 @@ export type PlannedAction = {
 
 export type AeraPlan = PlannedReply | PlannedAction;
 
+const ALLOWED = new Set([
+  "software.open",
+  "transport.play",
+  "transport.stop",
+  "transport.pause",
+]);
+
 const ACTION_PROTOCOL = `
 You are also AERA's intent planner.
 
@@ -23,13 +30,17 @@ Return exactly one JSON object and no markdown.
 For a normal conversational answer:
 {"kind":"reply","message":"your concise answer"}
 
-Only when the user explicitly asks to open REAPER:
+Allowed REAPER actions:
 {"kind":"action","capability":"software.open","input":{"appId":"reaper"},"message":"Opening REAPER."}
+{"kind":"action","capability":"transport.play","input":{"appId":"reaper"},"message":"Playing."}
+{"kind":"action","capability":"transport.stop","input":{"appId":"reaper"},"message":"Stopping."}
+{"kind":"action","capability":"transport.pause","input":{"appId":"reaper"},"message":"Pausing."}
 
 Rules:
+- Use an action only when the user explicitly requests that operation in REAPER, or REAPER is unambiguous from the immediately preceding conversation.
 - Never invent another capability.
-- Never put file paths, shell commands, executable names, URLs, scripts, keyboard shortcuts, or code in input.
-- Do not use kind=action for questions about REAPER; only an explicit request to open/launch/start it.
+- Never put file paths, shell commands, executable names, URLs, scripts, keyboard shortcuts, OSC addresses, or code in input.
+- A question about how REAPER works is a reply, not an action.
 - If you are unsure, use kind=reply.
 - The runtime decides whether an action is permitted and whether it actually succeeded.
 `.trim();
@@ -57,18 +68,24 @@ export function parsePlan(text: string): AeraPlan {
   }
 
   const candidate = parsed as Record<string, unknown>;
+
   if (candidate.kind === "action") {
-    if (
-      candidate.capability === "software.open" &&
-      candidate.input &&
-      typeof candidate.input === "object" &&
-      (candidate.input as Record<string, unknown>).appId === "reaper"
-    ) {
+    const capability =
+      typeof candidate.capability === "string" ? candidate.capability : "";
+    const input =
+      candidate.input && typeof candidate.input === "object"
+        ? (candidate.input as Record<string, unknown>)
+        : {};
+
+    if (ALLOWED.has(capability) && input.appId === "reaper") {
       return {
         kind: "action",
-        capability: "software.open",
+        capability,
         input: { appId: "reaper" },
-        message: typeof candidate.message === "string" ? candidate.message : "Opening REAPER.",
+        message:
+          typeof candidate.message === "string"
+            ? candidate.message
+            : "Running the REAPER action.",
       };
     }
 
