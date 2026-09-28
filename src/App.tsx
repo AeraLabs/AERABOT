@@ -175,6 +175,27 @@ export function App() {
     setTranscript((current) => [...current, entry].slice(-30));
   };
 
+  const finishReply = async (reply: string, finalState: OrbState) => {
+    const wantsVoice =
+      preferences.talkBack === "voice" ||
+      (preferences.talkBack === "auto" && speechStatus?.piperAvailable);
+
+    if (wantsVoice && speechStatus?.piperAvailable) {
+      runtime.setState("SPEAKING");
+      runtime.notify(reply);
+      try {
+        const audio = await synthesizeSpeech(reply);
+        await playWavBytes(audio);
+      } catch {
+        // The text response remains authoritative when local TTS cannot play.
+      }
+    }
+
+    runtime.setState(finalState);
+    runtime.notify(reply);
+  };
+
+
   const processInput = async (value: string) => {
     const clean = value.trim();
     if (!clean) return;
@@ -210,9 +231,8 @@ export function App() {
             ? result.error
             : "the action was not permitted.");
 
-      if (result.ok) runtime.setState("SUCCESS");
-      runtime.notify(reply);
       appendAssistant(reply, "AERA direct intent · local");
+      await finishReply(reply, result.ok ? "SUCCESS" : "ERROR");
       return;
     }
 
@@ -269,43 +289,30 @@ export function App() {
         } else {
           const result = await runtime.execute(action);
           if (result.ok) {
-            reply = "REAPER is open.";
-            setReaperStatus((current) =>
-              current ? { ...current, installed: true } : current,
-            );
+            reply = plan.message;
+            if (plan.capability === "software.open") {
+              setReaperStatus((current) =>
+                current ? { ...current, installed: true } : current,
+              );
+            }
           } else {
             reply =
-              "I couldn't open REAPER: " +
+              "I couldn't complete that REAPER action: " +
               ("error" in result && result.error
                 ? result.error
                 : "the action was not permitted.");
           }
         }
-      } else {
-        runtime.setState("SUCCESS");
       }
 
       appendAssistant(reply, meta);
-
-      const wantsVoice =
-        preferences.talkBack === "voice" ||
-        (preferences.talkBack === "auto" && speechStatus?.piperAvailable);
-
-      if (wantsVoice && speechStatus?.piperAvailable) {
-        runtime.setState("SPEAKING");
-        runtime.notify(reply);
-        try {
-          const audio = await synthesizeSpeech(reply);
-          await playWavBytes(audio);
-        } catch {
-          // Text reply remains available when local TTS cannot play.
-        }
-      }
-
-      if (runtime.state !== "ERROR" && runtime.state !== "QUESTION") {
-        runtime.setState("SUCCESS");
-      }
-      runtime.notify(reply);
+      const finalState: OrbState =
+        runtime.state === "ERROR"
+          ? "ERROR"
+          : runtime.state === "QUESTION"
+            ? "QUESTION"
+            : "SUCCESS";
+      await finishReply(reply, finalState);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       const reply = "Local AI error: " + detail;
