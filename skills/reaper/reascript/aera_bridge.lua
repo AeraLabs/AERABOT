@@ -18,6 +18,7 @@ reaper.RecursiveCreateDirectory(bridge_dir, 0)
 
 local last_write = 0.0
 local last_change_count = -1
+local last_selected_guid = ""
 local cached_tracks_json = "[]"
 local cached_track_count = 0
 local cached_tracks_truncated = false
@@ -109,6 +110,12 @@ local function selected_track_snapshot(track, index)
   })
 end
 
+local function selected_guid(project)
+  local selected = reaper.GetSelectedTrack(project, 0)
+  if not selected then return "" end
+  return reaper.GetTrackGUID(selected) or ""
+end
+
 local function rebuild_track_cache(project)
   local track_count = reaper.CountTracks(project)
   local emit_count = math.min(track_count, MAX_TRACKS)
@@ -141,6 +148,7 @@ local function rebuild_track_cache(project)
   cached_track_count = track_count
   cached_tracks_truncated = track_count > emit_count
   cached_selected_json = selected_track_snapshot(selected_track, selected_index)
+  last_selected_guid = selected_track and (reaper.GetTrackGUID(selected_track) or "") or ""
 end
 
 local function write_snapshot()
@@ -148,7 +156,8 @@ local function write_snapshot()
   if not project then return end
 
   local change_count = reaper.GetProjectStateChangeCount(project)
-  if change_count ~= last_change_count then
+  local current_selected_guid = selected_guid(project)
+  if change_count ~= last_change_count or current_selected_guid ~= last_selected_guid then
     rebuild_track_cache(project)
     last_change_count = change_count
   end
