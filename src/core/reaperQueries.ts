@@ -26,30 +26,6 @@ export function answerVerifiedReaperQuery(
   if (!hasReaperContext(text, reaperForeground)) return null;
 
   if (
-    /\b(what|which)\b.*\b(track)\b/.test(text) &&
-    /\b(selected|on|current)\b/.test(text)
-  ) {
-    if (!state.selectedTrack) return "No REAPER track is currently selected.";
-    const track = state.selectedTrack;
-    const conditions = [
-      track.armed ? "armed" : null,
-      track.muted ? "muted" : null,
-      track.soloed ? "soloed" : null,
-      track.monitoring ? "monitoring" : null,
-    ].filter(Boolean);
-
-    return (
-      "Track " +
-      track.index +
-      ", “" +
-      track.name +
-      "” is selected" +
-      (conditions.length ? " · " + conditions.join(", ") : "") +
-      "."
-    );
-  }
-
-  if (
     /\b(how many|number of)\b.*\btracks?\b/.test(text) ||
     /\btrack count\b/.test(text)
   ) {
@@ -94,6 +70,30 @@ export function answerVerifiedReaperQuery(
       track.name +
       "” has: " +
       track.fx.join(", ") +
+      "."
+    );
+  }
+
+  if (
+    /\b(what|which)\b.*\b(track)\b/.test(text) &&
+    /\b(selected|on|current)\b/.test(text)
+  ) {
+    if (!state.selectedTrack) return "No REAPER track is currently selected.";
+    const track = state.selectedTrack;
+    const conditions = [
+      track.armed ? "armed" : null,
+      track.muted ? "muted" : null,
+      track.soloed ? "soloed" : null,
+      track.monitoring ? "monitoring" : null,
+    ].filter(Boolean);
+
+    return (
+      "Track " +
+      track.index +
+      ", “" +
+      track.name +
+      "” is selected" +
+      (conditions.length ? " · " + conditions.join(", ") : "") +
       "."
     );
   }
