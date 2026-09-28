@@ -232,7 +232,10 @@ export function App() {
             : "the action was not permitted.");
 
       appendAssistant(reply, "AERA direct intent · local");
-      await finishReply(reply, result.ok ? "SUCCESS" : "ERROR");
+      await finishReply(
+        reply,
+        result.ok && directIntent.input.appId === "reaper" ? "STUDIO" : result.ok ? "SUCCESS" : "ERROR",
+      );
       return;
     }
 
@@ -311,7 +314,9 @@ export function App() {
           ? "ERROR"
           : runtime.state === "QUESTION"
             ? "QUESTION"
-            : "SUCCESS";
+            : plan.kind === "action" && plan.input.appId === "reaper"
+              ? "STUDIO"
+              : "SUCCESS";
       await finishReply(reply, finalState);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
