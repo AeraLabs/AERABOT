@@ -31,6 +31,8 @@ pub struct DawTransportState {
     pub playing: bool,
     pub recording: bool,
     pub position_seconds: Option<f64>,
+    #[serde(default)]
+    pub position_beats: Option<f64>,
     pub bpm: Option<f64>,
 }
 
@@ -93,11 +95,25 @@ fn home_dir() -> Result<PathBuf, String> {
         .map_err(|_| "Could not determine the current user home directory.".to_string())
 }
 
+fn known_daw(daw_id: &str) -> bool {
+    matches!(daw_id, "flstudio" | "ableton" | "logic" | "protools")
+}
+
 fn bridge_root(daw_id: &str) -> Result<PathBuf, String> {
+    if !known_daw(daw_id) {
+        return Err("Unknown AERA DAW bridge id.".into());
+    }
     Ok(home_dir()?
         .join(".aera")
         .join("bridges")
         .join(daw_id))
+}
+
+pub fn prepare_bridge(daw_id: &str) -> Result<String, String> {
+    let root = bridge_root(daw_id)?;
+    fs::create_dir_all(root.join("commands")).map_err(|error| error.to_string())?;
+    fs::create_dir_all(root.join("acks")).map_err(|error| error.to_string())?;
+    Ok(root.to_string_lossy().into_owned())
 }
 
 fn state_path(daw_id: &str) -> Result<PathBuf, String> {
@@ -110,6 +126,17 @@ fn age(path: &Path) -> Option<Duration> {
 }
 
 pub fn read_status(daw_id: &str) -> DawBridgeStatus {
+    if let Err(error) = prepare_bridge(daw_id) {
+        return DawBridgeStatus {
+            available: false,
+            stale: false,
+            age_ms: None,
+            path: None,
+            state: None,
+            error: Some(error),
+        };
+    }
+
     let path = match state_path(daw_id) {
         Ok(path) => path,
         Err(error) => {
@@ -184,35 +211,27 @@ pub fn read_status(daw_id: &str) -> DawBridgeStatus {
     }
 }
 
-fn allowed_capability(capability: &str, input: &Value) -> bool {
+fn allowed_capability(daw_id: &str, capability: &str, input: &Value) -> bool {
     let app_id = input.get("appId").and_then(Value::as_str);
+    if app_id != Some(daw_id) || !known_daw(daw_id) {
+        return false;
+    }
     let target = input.get("target").and_then(Value::as_str);
     let boolean_value = input.get("value").and_then(Value::as_bool);
     let number_value = input.get("value").and_then(Value::as_f64);
 
     match capability {
-        "transport.play" | "transport.stop" | "transport.record.toggle" => {
-            app_id == Some("flstudio")
-        }
+        "transport.play" | "transport.stop" | "transport.record.toggle" => true,
         "track.mute.set" | "track.solo.set" | "track.arm.set" => {
-            app_id == Some("flstudio")
-                && target == Some("selected")
-                && boolean_value.is_some()
+            target == Some("selected") && boolean_value.is_some()
         }
-        "track.volume.set" => {
-            app_id == Some("flstudio")
-                && target == Some("selected")
-                && number_value.map(|value| (0.0..=1.0).contains(&value)) == Some(true)
-        }
-        "track.pan.set" => {
-            app_id == Some("flstudio")
-                && target == Some("selected")
-                && number_value.map(|value| (-1.0..=1.0).contains(&value)) == Some(true)
-        }
+        "track.volume.set" => target == Some("selected")
+            && number_value.map(|value| (0.0..=1.0).contains(&value)) == Some(true),
+        "track.pan.set" => target == Some("selected")
+            && number_value.map(|value| (-1.0..=1.0).contains(&value)) == Some(true),
         _ => false,
     }
 }
-
 fn atomic_write_json(path: &Path, value: &impl Serialize) -> Result<(), String> {
     let parent = path
         .parent()
@@ -233,27 +252,27 @@ pub fn send_command(
     capability: String,
     input: Value,
 ) -> Result<DawCommandAck, String> {
-    if daw_id != "flstudio" {
-        return Err("This DAW bridge command path is not enabled yet.".into());
+    if !known_daw(daw_id) {
+        return Err("Unknown AERA DAW bridge id.".into());
     }
 
     if id.len() < 3 || id.len() > 160 || !id.chars().all(|c| c.is_ascii_alphanumeric() || "-_".contains(c)) {
         return Err("Invalid DAW command id.".into());
     }
 
-    if !allowed_capability(&capability, &input) {
-        return Err("AERA rejected an unsupported or invalid FL Studio command.".into());
+    if !allowed_capability(daw_id, &capability, &input) {
+        return Err(format!("AERA rejected an unsupported or invalid {daw_id} bridge command."));
     }
 
     let status = read_status(daw_id);
     let state = status
         .state
-        .ok_or_else(|| status.error.unwrap_or_else(|| "FL Studio bridge is unavailable.".into()))?;
+        .ok_or_else(|| status.error.unwrap_or_else(|| format!("{daw_id} bridge is unavailable.")))?;
     if status.stale {
-        return Err("FL Studio bridge state is stale; command not sent.".into());
+        return Err(format!("{daw_id} bridge state is stale; command not sent."));
     }
     if !state.capabilities.iter().any(|candidate| candidate == &capability) {
-        return Err("The connected FL Studio bridge does not advertise this capability.".into());
+        return Err(format!("The connected {daw_id} bridge does not advertise this capability."));
     }
 
     let root = bridge_root(daw_id)?;
@@ -277,20 +296,21 @@ pub fn send_command(
                 serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
             let _ = fs::remove_file(&ack_path);
             if ack.id != id || ack.capability != capability {
-                return Err("FL Studio returned a mismatched command acknowledgement.".into());
+                return Err(format!("{daw_id} returned a mismatched command acknowledgement."));
             }
+            let _ = fs::remove_file(&command_path);
             if ack.ok {
                 return Ok(ack);
             }
             return Err(ack
                 .error
-                .unwrap_or_else(|| "FL Studio rejected the requested command.".into()));
+                .unwrap_or_else(|| format!("{daw_id} rejected the requested command.")));
         }
         thread::sleep(Duration::from_millis(30));
     }
 
     let _ = fs::remove_file(&command_path);
-    Err("FL Studio did not acknowledge the command in time.".into())
+    Err(format!("{daw_id} did not acknowledge the command in time."))
 }
 
 fn fl_studio_script_path() -> Result<PathBuf, String> {
@@ -334,6 +354,7 @@ mod tests {
     #[test]
     fn rejects_arbitrary_capabilities() {
         assert!(!allowed_capability(
+            "flstudio",
             "shell.execute",
             &serde_json::json!({"appId":"flstudio"})
         ));
@@ -342,16 +363,19 @@ mod tests {
     #[test]
     fn validates_selected_track_values() {
         assert!(allowed_capability(
+            "flstudio",
             "track.mute.set",
             &serde_json::json!({"appId":"flstudio","target":"selected","value":true})
         ));
         assert!(!allowed_capability(
+            "flstudio",
             "track.volume.set",
             &serde_json::json!({"appId":"flstudio","target":"selected","value":1.5})
         ));
         assert!(allowed_capability(
+            "ableton",
             "track.pan.set",
-            &serde_json::json!({"appId":"flstudio","target":"selected","value":-0.75})
+            &serde_json::json!({"appId":"ableton","target":"selected","value":-0.75})
         ));
     }
 }
