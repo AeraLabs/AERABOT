@@ -1,6 +1,6 @@
 export type GraphicsQuality = "auto" | "ultra" | "high" | "balanced" | "efficiency";
 export type MotionPreference = "system" | "reduce" | "full";
-export type AiProviderPreference = "auto" | "ollama" | "llamacpp";
+export type AiProviderPreference = "auto" | "ollama" | "llamacpp" | "openai_local";
 export type TalkBackPreference = "auto" | "text" | "voice";
 
 export interface AeraPreferences {
@@ -36,7 +36,7 @@ export function loadPreferences(): AeraPreferences {
       motion: ["system", "reduce", "full"].includes(parsed.motion ?? "")
         ? (parsed.motion as MotionPreference)
         : DEFAULT_PREFERENCES.motion,
-      aiProvider: ["auto", "ollama", "llamacpp"].includes(parsed.aiProvider ?? "")
+      aiProvider: ["auto", "ollama", "llamacpp", "openai_local"].includes(parsed.aiProvider ?? "")
         ? (parsed.aiProvider as AiProviderPreference)
         : DEFAULT_PREFERENCES.aiProvider,
       aiModel: typeof parsed.aiModel === "string" ? parsed.aiModel : "",

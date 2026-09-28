@@ -10,16 +10,17 @@ Current adapters:
 
 1. **Ollama** at `127.0.0.1:11434`
 2. **llama.cpp server** at `127.0.0.1:8080`
+3. **Generic OpenAI-compatible local server**, configured with `AERA_OPENAI_LOCAL_URL`
 
 Any model that those local runtimes can load and expose through their supported chat interface can be used by AERA. The model list is discovered at runtime. AERA does not hardcode one vendor or one model family.
 
-This is intentional: users can choose small CPU-friendly models, larger GPU models, coding models, general models, or future open models without rebuilding AERA.
+This is intentional: newly released open-weight chat, coding, reasoning, or small CPU-friendly models can become available to AERA without an AERABOT release.
 
 ## Ollama
 
 Run Ollama locally and install whichever locally licensed model you want to use. AERA calls the loopback `/api/chat` interface and discovers installed models from `/api/tags`.
 
-AERA does not call Ollama's cloud-hosted endpoints.
+AERA does not call Ollama cloud endpoints.
 
 ## llama.cpp
 
@@ -27,23 +28,51 @@ Run llama.cpp's local server on port 8080. AERA discovers the loaded model from 
 
 llama.cpp is especially important for AERA because GGUF quantization and CPU execution provide a practical fallback for older hardware and Intel Macs.
 
+## Other OpenAI-compatible local runtimes
+
+AERA can use another local runtime that exposes the common OpenAI-compatible:
+
+```text
+GET  /models
+POST /chat/completions
+```
+
+Set the runtime's local `/v1` root before starting AERA:
+
+### macOS
+
+```bash
+export AERA_OPENAI_LOCAL_URL=http://127.0.0.1:8000/v1
+```
+
+### Windows PowerShell
+
+```powershell
+$env:AERA_OPENAI_LOCAL_URL = "http://127.0.0.1:8000/v1"
+```
+
+This endpoint is deliberately restricted to explicit loopback hosts:
+
+- `127.0.0.1`
+- `localhost`
+- `::1`
+
+Remote hosts, LAN addresses, HTTPS cloud URLs, embedded credentials, query strings, and fragments are rejected by the native runtime.
+
+That makes the adapter useful for many free/open inference servers without quietly weakening AERA's local-first boundary.
+
 ## Local speech-to-text
 
-AERA supports the local whisper.cpp HTTP server.
-
-AERA expects it at:
+AERA supports the local whisper.cpp HTTP server at:
 
 ```text
 http://127.0.0.1:8081
 ```
 
-Port 8081 is used so it does not collide with the default AERA llama.cpp endpoint.
-
-The microphone capture path is:
+Port 8081 avoids collision with AERA's default llama.cpp endpoint.
 
 ```text
 Microphone
-  -> browser audio capture
   -> mono PCM
   -> 16 kHz WAV
   -> native Tauri IPC
@@ -62,8 +91,6 @@ AERA supports Piper's local HTTP server at:
 http://127.0.0.1:5000
 ```
 
-The reply path is:
-
 ```text
 Local LLM reply
   -> native Tauri IPC
@@ -72,34 +99,22 @@ Local LLM reply
   -> local playback
 ```
 
-If Piper is unavailable, AERA remains fully usable with text and earcons.
+If Piper is unavailable, AERA remains usable with text and earcons.
 
-## Response modes
+## Action safety
 
-- **Auto** — speak when Piper is available; otherwise text
-- **Text only** — never synthesize speech
-- **Local voice** — prefer Piper when available
+Language generation and computer control are separate systems.
 
-## Security boundary
+The model can propose only planner actions allowed by AERA's constrained action protocol. A Skill independently validates the proposed input and assigns the risk class. The permission engine then executes and journals the action.
 
-The built-in local providers use fixed loopback addresses.
-
-AERA does not accept an arbitrary remote LLM URL through these commands. This prevents a configuration change from silently turning a local-first assistant into a remote data path.
-
-Real desktop actions are still separate from language generation:
+The first real action is deliberately narrow:
 
 ```text
-User
- -> local model
- -> intent / response
- -> AERA Core
- -> Skill
- -> permission engine
- -> execution
- -> journal
+software.open
+  appId = reaper
 ```
 
-A model response alone is never proof that a computer action happened.
+The model cannot supply executable paths or arbitrary commands.
 
 ## Model licensing
 

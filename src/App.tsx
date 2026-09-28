@@ -447,6 +447,7 @@ export function App() {
                 <option value="auto">Auto detect</option>
                 <option value="ollama">Ollama</option>
                 <option value="llamacpp">llama.cpp</option>
+                <option value="openai_local">OpenAI-compatible local</option>
               </select>
             </label>
 

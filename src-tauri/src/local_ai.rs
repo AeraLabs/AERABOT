@@ -1,10 +1,11 @@
-use reqwest::Client;
+use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 
 const OLLAMA_BASE: &str = "http://127.0.0.1:11434";
 const LLAMA_CPP_BASE: &str = "http://127.0.0.1:8080";
+const OPENAI_LOCAL_ENV: &str = "AERA_OPENAI_LOCAL_URL";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,40 +58,70 @@ fn client(timeout_seconds: u64) -> Result<Client, String> {
         .map_err(|error| error.to_string())
 }
 
+fn normalize_loopback_base(raw: &str) -> Result<String, String> {
+    let url = Url::parse(raw.trim()).map_err(|_| "Local OpenAI URL is invalid.".to_string())?;
+
+    if url.scheme() != "http" {
+        return Err("Local OpenAI URL must use http on loopback.".into());
+    }
+
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err("Credentials are not accepted in the local OpenAI URL.".into());
+    }
+
+    let host = url
+        .host_str()
+        .ok_or_else(|| "Local OpenAI URL has no host.".to_string())?;
+
+    if !matches!(host, "127.0.0.1" | "localhost" | "::1") {
+        return Err("Local OpenAI URL must resolve to explicit loopback only.".into());
+    }
+
+    if url.query().is_some() || url.fragment().is_some() {
+        return Err("Local OpenAI URL cannot contain a query or fragment.".into());
+    }
+
+    Ok(raw.trim().trim_end_matches('/').to_string())
+}
+
+fn configured_openai_base() -> Result<Option<String>, String> {
+    match std::env::var(OPENAI_LOCAL_ENV) {
+        Ok(raw) if !raw.trim().is_empty() => normalize_loopback_base(&raw).map(Some),
+        _ => Ok(None),
+    }
+}
+
 async fn probe_ollama(http: &Client) -> LocalProviderStatus {
     let endpoint = format!("{OLLAMA_BASE}/api/tags");
     match http.get(&endpoint).send().await {
-        Ok(response) if response.status().is_success() => {
-            let parsed = response.json::<Value>().await;
-            match parsed {
-                Ok(value) => {
-                    let models = value
-                        .get("models")
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|item| item.get("name").and_then(Value::as_str))
-                        .map(ToOwned::to_owned)
-                        .collect();
-                    LocalProviderStatus {
-                        id: "ollama".into(),
-                        name: "Ollama".into(),
-                        endpoint: OLLAMA_BASE.into(),
-                        available: true,
-                        models,
-                        error: None,
-                    }
-                }
-                Err(error) => LocalProviderStatus {
+        Ok(response) if response.status().is_success() => match response.json::<Value>().await {
+            Ok(value) => {
+                let models = value
+                    .get("models")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|item| item.get("name").and_then(Value::as_str))
+                    .map(ToOwned::to_owned)
+                    .collect();
+                LocalProviderStatus {
                     id: "ollama".into(),
                     name: "Ollama".into(),
                     endpoint: OLLAMA_BASE.into(),
                     available: true,
-                    models: vec![],
-                    error: Some(format!("Connected, but model discovery failed: {error}")),
-                },
+                    models,
+                    error: None,
+                }
             }
-        }
+            Err(error) => LocalProviderStatus {
+                id: "ollama".into(),
+                name: "Ollama".into(),
+                endpoint: OLLAMA_BASE.into(),
+                available: true,
+                models: vec![],
+                error: Some(format!("Connected, but model discovery failed: {error}")),
+            },
+        },
         Ok(response) => LocalProviderStatus {
             id: "ollama".into(),
             name: "Ollama".into(),
@@ -110,64 +141,147 @@ async fn probe_ollama(http: &Client) -> LocalProviderStatus {
     }
 }
 
-async fn probe_llama_cpp(http: &Client) -> LocalProviderStatus {
-    let endpoint = format!("{LLAMA_CPP_BASE}/v1/models");
+async fn probe_openai_compatible(
+    http: &Client,
+    id: &str,
+    name: &str,
+    base: &str,
+) -> LocalProviderStatus {
+    let endpoint = format!("{base}/models");
     match http.get(&endpoint).send().await {
-        Ok(response) if response.status().is_success() => {
-            let parsed = response.json::<Value>().await;
-            match parsed {
-                Ok(value) => {
-                    let models = value
-                        .get("data")
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|item| item.get("id").and_then(Value::as_str))
-                        .map(ToOwned::to_owned)
-                        .collect();
-                    LocalProviderStatus {
-                        id: "llamacpp".into(),
-                        name: "llama.cpp".into(),
-                        endpoint: LLAMA_CPP_BASE.into(),
-                        available: true,
-                        models,
-                        error: None,
-                    }
-                }
-                Err(error) => LocalProviderStatus {
-                    id: "llamacpp".into(),
-                    name: "llama.cpp".into(),
-                    endpoint: LLAMA_CPP_BASE.into(),
+        Ok(response) if response.status().is_success() => match response.json::<Value>().await {
+            Ok(value) => {
+                let models = value
+                    .get("data")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|item| item.get("id").and_then(Value::as_str))
+                    .map(ToOwned::to_owned)
+                    .collect();
+
+                LocalProviderStatus {
+                    id: id.into(),
+                    name: name.into(),
+                    endpoint: base.into(),
                     available: true,
-                    models: vec![],
-                    error: Some(format!("Connected, but model discovery failed: {error}")),
-                },
+                    models,
+                    error: None,
+                }
             }
-        }
+            Err(error) => LocalProviderStatus {
+                id: id.into(),
+                name: name.into(),
+                endpoint: base.into(),
+                available: true,
+                models: vec![],
+                error: Some(format!("Connected, but model discovery failed: {error}")),
+            },
+        },
         Ok(response) => LocalProviderStatus {
-            id: "llamacpp".into(),
-            name: "llama.cpp".into(),
-            endpoint: LLAMA_CPP_BASE.into(),
+            id: id.into(),
+            name: name.into(),
+            endpoint: base.into(),
             available: false,
             models: vec![],
             error: Some(format!("HTTP {}", response.status())),
         },
         Err(error) => LocalProviderStatus {
-            id: "llamacpp".into(),
-            name: "llama.cpp".into(),
-            endpoint: LLAMA_CPP_BASE.into(),
+            id: id.into(),
+            name: name.into(),
+            endpoint: base.into(),
             available: false,
             models: vec![],
             error: Some(error.to_string()),
         },
     }
+}
+
+async fn chat_openai_compatible(
+    http: &Client,
+    provider: &str,
+    base: &str,
+    request: LocalChatRequest,
+    started: Instant,
+) -> Result<LocalChatResponse, String> {
+    let response = http
+        .post(format!("{base}/chat/completions"))
+        .json(&json!({
+            "model": request.model,
+            "messages": request.messages,
+            "temperature": 0.25,
+            "max_tokens": 700,
+            "stream": false
+        }))
+        .send()
+        .await
+        .map_err(|error| format!("{provider} is unavailable: {error}"))?;
+
+    let status = response.status();
+    let value = response
+        .json::<Value>()
+        .await
+        .map_err(|error| format!("Invalid {provider} response: {error}"))?;
+
+    if !status.is_success() {
+        return Err(value
+            .get("error")
+            .and_then(|error| {
+                error
+                    .get("message")
+                    .and_then(Value::as_str)
+                    .or_else(|| error.as_str())
+            })
+            .unwrap_or("Local OpenAI-compatible runtime returned an error.")
+            .to_string());
+    }
+
+    let content = value
+        .pointer("/choices/0/message/content")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    if content.is_empty() {
+        return Err(format!("{provider} returned an empty response."));
+    }
+
+    Ok(LocalChatResponse {
+        provider: provider.into(),
+        model: request.model,
+        content,
+        thinking: None,
+        elapsed_ms: started.elapsed().as_millis(),
+    })
 }
 
 pub async fn probe() -> Result<Vec<LocalProviderStatus>, String> {
     let http = client(5)?;
     let ollama = probe_ollama(&http).await;
-    let llama_cpp = probe_llama_cpp(&http).await;
-    Ok(vec![ollama, llama_cpp])
+    let llama_cpp = probe_openai_compatible(&http, "llamacpp", "llama.cpp", &format!("{LLAMA_CPP_BASE}/v1")).await;
+
+    let openai_local = match configured_openai_base() {
+        Ok(Some(base)) => probe_openai_compatible(&http, "openai_local", "OpenAI-compatible local", &base).await,
+        Ok(None) => LocalProviderStatus {
+            id: "openai_local".into(),
+            name: "OpenAI-compatible local".into(),
+            endpoint: format!("set {OPENAI_LOCAL_ENV}"),
+            available: false,
+            models: vec![],
+            error: Some("Not configured.".into()),
+        },
+        Err(error) => LocalProviderStatus {
+            id: "openai_local".into(),
+            name: "OpenAI-compatible local".into(),
+            endpoint: format!("set {OPENAI_LOCAL_ENV}"),
+            available: false,
+            models: vec![],
+            error: Some(error),
+        },
+    };
+
+    Ok(vec![ollama, llama_cpp, openai_local])
 }
 
 pub async fn chat(request: LocalChatRequest) -> Result<LocalChatResponse, String> {
@@ -231,53 +345,42 @@ pub async fn chat(request: LocalChatRequest) -> Result<LocalChatResponse, String
             })
         }
         "llamacpp" => {
-            let response = http
-                .post(format!("{LLAMA_CPP_BASE}/v1/chat/completions"))
-                .json(&json!({
-                    "model": request.model,
-                    "messages": request.messages,
-                    "temperature": 0.25,
-                    "max_tokens": 700,
-                    "stream": false
-                }))
-                .send()
-                .await
-                .map_err(|error| format!("llama.cpp is unavailable: {error}"))?;
-
-            let status = response.status();
-            let value = response
-                .json::<Value>()
-                .await
-                .map_err(|error| format!("Invalid llama.cpp response: {error}"))?;
-
-            if !status.is_success() {
-                return Err(value
-                    .get("error")
-                    .and_then(|error| error.get("message"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("llama.cpp returned an error.")
-                    .to_string());
-            }
-
-            let content = value
-                .pointer("/choices/0/message/content")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-
-            if content.is_empty() {
-                return Err("llama.cpp returned an empty response.".into());
-            }
-
-            Ok(LocalChatResponse {
-                provider: "llamacpp".into(),
-                model: request.model,
-                content,
-                thinking: None,
-                elapsed_ms: started.elapsed().as_millis(),
-            })
+            chat_openai_compatible(
+                &http,
+                "llamacpp",
+                &format!("{LLAMA_CPP_BASE}/v1"),
+                request,
+                started,
+            )
+            .await
+        }
+        "openai_local" => {
+            let base = configured_openai_base()?
+                .ok_or_else(|| format!("{OPENAI_LOCAL_ENV} is not configured."))?;
+            chat_openai_compatible(&http, "openai_local", &base, request, started).await
         }
         _ => Err("Unsupported local AI provider.".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_explicit_loopback_urls() {
+        assert_eq!(
+            normalize_loopback_base("http://127.0.0.1:8000/v1/").unwrap(),
+            "http://127.0.0.1:8000/v1"
+        );
+        assert!(normalize_loopback_base("http://localhost:9000/v1").is_ok());
+        assert!(normalize_loopback_base("http://[::1]:8000/v1").is_ok());
+    }
+
+    #[test]
+    fn rejects_remote_or_credentialed_urls() {
+        assert!(normalize_loopback_base("https://example.com/v1").is_err());
+        assert!(normalize_loopback_base("http://192.168.1.9:8000/v1").is_err());
+        assert!(normalize_loopback_base("http://user:secret@127.0.0.1:8000/v1").is_err());
     }
 }
