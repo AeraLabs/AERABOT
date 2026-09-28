@@ -94,6 +94,11 @@ import { flStudioSkill } from "./skills/flstudio";
 import { reaperSkill } from "./skills/reaper";
 import { wavrSkill } from "./skills/wavr";
 import {
+  analyzeVisualContext,
+  captureVisualContext,
+  setVisualContextEnabled,
+} from "./platform/visualContext";
+import {
   consumeWakeWordEvent,
   getWakeWordStatus,
   installWakeWordCompanion,
@@ -486,6 +491,23 @@ export function App() {
     setPreferences((current) => ({ ...current, ...patch }));
   };
 
+  const setVisualContextPreference = async (enabled: boolean) => {
+    try {
+      const status = await setVisualContextEnabled(enabled);
+      patchPreferences({ visualContextEnabled: status.enabled });
+      const reply = status.enabled
+        ? "Visual Context enabled for this session. I will only capture a window after an explicit look request."
+        : "Visual Context disabled.";
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA privacy · local");
+    } catch (error) {
+      const reply = error instanceof Error ? error.message : String(error);
+      runtime.setState("ERROR");
+      runtime.notify(reply);
+      appendAssistant(reply, "AERA visual context");
+    }
+  };
+
   const patchOrbColor = (
     key: "primary" | "secondary" | "accent",
     value: string,
@@ -728,6 +750,89 @@ export function App() {
     runtime.notify("“" + clean + "”");
 
     if (await runtime.runInternalCommand(clean)) return;
+
+    const visualRequest = clean.match(
+      /^(?:aera[ ,]+)?(?:look at this|look at|what(?:'s| is) on|what do you see(?: in)?|inspect)\s*(.*)$/i,
+    );
+    if (visualRequest) {
+      if (!preferences.visualContextEnabled) {
+        const reply =
+          "Visual Context is off. Enable it in SETUP for this session before asking me to look.";
+        runtime.setState("QUESTION");
+        appendAssistant(reply, "AERA privacy · local");
+        runtime.notify(reply);
+        return;
+      }
+
+      const ollama = providers.find(
+        (provider) => provider.id === "ollama" && provider.available,
+      );
+      const visualModel =
+        preferences.visualModel &&
+        ollama?.models.includes(preferences.visualModel)
+          ? preferences.visualModel
+          : "";
+
+      if (!visualModel) {
+        const reply =
+          "Visual capture is enabled, but no local Ollama vision model is selected in SETUP.";
+        runtime.setState("QUESTION");
+        appendAssistant(reply, "AERA visual context · local");
+        runtime.notify(reply);
+        return;
+      }
+
+      if (!foreground?.processId) {
+        const reply =
+          "I do not have a verified external foreground window to inspect. Focus the window you want, then summon AERA again.";
+        runtime.setState("QUESTION");
+        appendAssistant(reply, "AERA visual context · local");
+        runtime.notify(reply);
+        return;
+      }
+
+      runtime.setState("UNDERSTANDING");
+      runtime.notify("Capturing the last verified foreground window locally…");
+
+      try {
+        const capture = await captureVisualContext(
+          foreground.processId,
+          foreground.title,
+        );
+        const question =
+          visualRequest[1]?.trim() ||
+          "Describe the visible interface and anything relevant to what the user is doing. Be precise about uncertainty.";
+
+        const vision = await analyzeVisualContext(
+          visualModel,
+          [
+            "You are AERA's local visual-context reader.",
+            "Analyze only what this one-time window capture visibly supports.",
+            "Do not infer hidden state or claim an action happened unless it is visibly confirmed.",
+            "Application: " + capture.appName,
+            capture.title ? "Window title: " + capture.title : "",
+            "User request: " + question,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          capture.png,
+        );
+
+        appendAssistant(
+          vision.content,
+          "AERA vision · local · " + capture.appName + " · " + vision.model,
+        );
+        await finishReply(vision.content, "SUCCESS");
+      } catch (error) {
+        const reply = error instanceof Error ? error.message : String(error);
+        runtime.setState("ERROR");
+        appendAssistant(reply, "AERA visual context · local");
+        runtime.notify(reply);
+      }
+      return;
+    }
+
+
 
     if (isUndoIntent(clean)) {
       const result = await runtime.undoLast();
@@ -1148,9 +1253,16 @@ export function App() {
           wavrBridge={wavrBridge}
           wakeWord={wakeWordStatus}
           foreground={foreground}
+          visualContextEnabled={preferences.visualContextEnabled}
+          visualModel={preferences.visualModel}
+          ollamaModels={
+            providers.find((provider) => provider.id === "ollama")?.models ?? []
+          }
           busy={serviceBusy}
           onRefresh={() => refreshLocalServices()}
           onWindowPermission={enableWindowAwareness}
+          onVisualContextChange={setVisualContextPreference}
+          onVisualModelChange={(model) => patchPreferences({ visualModel: model })}
           onInstallReaper={installReaperCompanion}
           onInstallFlStudio={installFlStudioCompanion}
           onPrepareAbleton={prepareAbletonCompanion}
@@ -1321,6 +1433,16 @@ export function App() {
                 }
               >
                 WAVR
+              </span>
+              <span
+                className={preferences.visualContextEnabled ? "service-on" : "service-off"}
+                title={
+                  preferences.visualContextEnabled
+                    ? "Visual Context armed for explicit one-shot capture this session"
+                    : "Visual Context off"
+                }
+              >
+                VISION
               </span>
               <span
                 className={
