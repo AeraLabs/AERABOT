@@ -32,6 +32,10 @@ GitHub Actions builds each target independently.
 - DPI-aware positioning
 - persistent native desktop position
 - safe recovery when a previously used monitor disappears
+- foreground application identity on macOS and Windows
+- real focused-window geometry (Windows natively; macOS after explicit Accessibility consent)
+- window-aware spatial placement with multi-monitor/DPI conversion and jitter suppression
+- automatic quiet-corner retreat for fullscreen/high-coverage workspaces
 - global summon shortcut
   - macOS: **Command + Shift + Space**
   - Windows: **Ctrl + Shift + Space**
@@ -231,7 +235,6 @@ These are still future work:
 
 - always-listening wake word
 - screen/application visual inspection
-- automatic Accessibility-permission onboarding on macOS
 - REAPER mutating track operations beyond transport
 - deeper DAW operations such as arm/mute/solo/parameters
 - WAVR/Ableton/FL Studio/Pro Tools Skills
