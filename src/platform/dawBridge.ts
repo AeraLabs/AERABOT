@@ -5,6 +5,7 @@ export interface DawTransportState {
   playing: boolean;
   recording: boolean;
   positionSeconds: number | null;
+  positionBeats?: number | null;
   bpm: number | null;
 }
 
@@ -114,6 +115,88 @@ export function flStudioModelContext(state: DawState) {
           track.fx.length ? "FX: " + track.fx.join(", ") : "no detected insert FX",
         ].join("; ")
       : "no selected mixer track",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+
+export type CompanionDawId = "flstudio" | "ableton" | "logic" | "protools";
+
+export async function getDawBridgeStatus(
+  dawId: CompanionDawId,
+): Promise<DawBridgeStatus> {
+  if (!isTauriRuntime()) {
+    return {
+      available: false,
+      stale: false,
+      ageMs: null,
+      path: null,
+      state: null,
+      error: dawId + " bridge requires the desktop runtime.",
+    };
+  }
+  return invoke<DawBridgeStatus>("daw_bridge_status", { dawId });
+}
+
+export async function prepareDawBridge(
+  dawId: CompanionDawId,
+): Promise<string> {
+  if (!isTauriRuntime()) {
+    throw new Error("DAW bridge preparation requires the desktop runtime.");
+  }
+  return invoke<string>("prepare_daw_bridge", { dawId });
+}
+
+export async function runDawCommand(
+  dawId: CompanionDawId,
+  id: string,
+  capability: string,
+  input: Record<string, unknown>,
+): Promise<DawCommandAck> {
+  if (!isTauriRuntime()) {
+    throw new Error("DAW bridge control requires the desktop runtime.");
+  }
+  return invoke<DawCommandAck>("daw_bridge_command", {
+    dawId,
+    id,
+    capability,
+    input,
+  });
+}
+
+export function dawModelContext(name: string, state: DawState) {
+  const track = state.selectedTrack;
+  const position =
+    state.transport.positionSeconds != null
+      ? state.transport.positionSeconds.toFixed(2) + " seconds"
+      : state.transport.positionBeats != null
+        ? state.transport.positionBeats.toFixed(2) + " beats"
+        : null;
+
+  return [
+    "Verified local " + name + " state:",
+    state.projectName ? "project “" + state.projectName + "”" : "untitled project",
+    state.transport.recording
+      ? "recording"
+      : state.transport.playing
+        ? "playing"
+        : "stopped",
+    position,
+    state.transport.bpm != null
+      ? state.transport.bpm.toFixed(2) + " BPM"
+      : null,
+    track
+      ? [
+          "selected track " + track.index + " “" + track.name + "”",
+          track.muted ? "muted" : "not muted",
+          track.soloed ? "soloed" : "not soloed",
+          track.armed ? "armed" : "not armed",
+          "volume " + track.volume.toFixed(3),
+          "pan " + track.pan.toFixed(3),
+          track.fx.length ? "FX: " + track.fx.join(", ") : "no detected devices",
+        ].join("; ")
+      : "no selected track",
   ]
     .filter(Boolean)
     .join(" ");
