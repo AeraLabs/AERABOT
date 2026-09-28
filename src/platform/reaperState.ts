@@ -163,3 +163,32 @@ export async function verifyReaperTransport(
 
   return { connected, verified: false, state: lastState };
 }
+
+
+export type ReaperTrackOperation = "mute" | "solo" | "arm";
+
+export interface ReaperTrackCommandOutcome {
+  id: string;
+  operation: ReaperTrackOperation;
+  trackGuid: string;
+  requestedValue: boolean;
+  before: boolean;
+  after: boolean;
+}
+
+export async function runReaperTrackCommand(
+  id: string,
+  trackGuid: string,
+  operation: ReaperTrackOperation,
+  value: boolean,
+): Promise<ReaperTrackCommandOutcome> {
+  if (!isTauriRuntime()) {
+    throw new Error("REAPER track control requires the desktop runtime.");
+  }
+  return invoke<ReaperTrackCommandOutcome>("reaper_track_command", {
+    id,
+    trackGuid,
+    operation,
+    value,
+  });
+}
