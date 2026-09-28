@@ -256,6 +256,16 @@ fn install_fl_studio_bridge() -> Result<daw_bridge::DawBridgeInstallResult, Stri
 }
 
 #[tauri::command]
+fn install_logic_bridge() -> Result<daw_bridge::DawBridgeInstallResult, String> {
+    daw_bridge::install_logic_bridge()
+}
+
+#[tauri::command]
+fn install_pro_tools_bridge() -> Result<daw_bridge::DawBridgeInstallResult, String> {
+    daw_bridge::install_pro_tools_bridge()
+}
+
+#[tauri::command]
 fn wake_word_status() -> wakeword::WakeWordStatus {
     wakeword::status()
 }
@@ -338,6 +348,8 @@ pub fn run() {
             daw_bridge_command,
             fl_studio_command,
             install_fl_studio_bridge,
+            install_logic_bridge,
+            install_pro_tools_bridge,
             wake_word_status,
             consume_wake_word_event,
             foreground_window_snapshot,

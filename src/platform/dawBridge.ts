@@ -201,3 +201,18 @@ export function dawModelContext(name: string, state: DawState) {
     .filter(Boolean)
     .join(" ");
 }
+
+
+export async function installLogicBridge(): Promise<DawBridgeInstallResult> {
+  if (!isTauriRuntime()) {
+    throw new Error("Logic bridge installation requires the desktop runtime.");
+  }
+  return invoke<DawBridgeInstallResult>("install_logic_bridge");
+}
+
+export async function installProToolsBridge(): Promise<DawBridgeInstallResult> {
+  if (!isTauriRuntime()) {
+    throw new Error("Pro Tools bridge installation requires the desktop runtime.");
+  }
+  return invoke<DawBridgeInstallResult>("install_pro_tools_bridge");
+}

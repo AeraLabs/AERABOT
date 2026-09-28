@@ -9,6 +9,8 @@ const SCHEMA_VERSION: u32 = 1;
 const STALE_AFTER: Duration = Duration::from_secs(3);
 const ACK_TIMEOUT: Duration = Duration::from_millis(1800);
 const FL_STUDIO_SCRIPT: &str = include_str!("../../skills/flstudio/device_AERA.py");
+const LOGIC_OSC_SCRIPT: &str = include_str!("../../scripts/logic/aera_logic_osc.py");
+const PRO_TOOLS_WRAPPER: &str = include_str!("../../scripts/protools/aera_ptsl_bridge.py");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -322,6 +324,50 @@ fn fl_studio_script_path() -> Result<PathBuf, String> {
         .join("Hardware")
         .join("AERA")
         .join("device_AERA.py"))
+}
+
+fn install_companion_script(
+    daw_id: &str,
+    file_name: &str,
+    content: &str,
+    instructions: &str,
+) -> Result<DawBridgeInstallResult, String> {
+    let root = bridge_root(daw_id)?;
+    fs::create_dir_all(&root).map_err(|error| error.to_string())?;
+    let path = root.join(file_name);
+
+    let already_current = fs::read_to_string(&path)
+        .map(|existing| existing == content)
+        .unwrap_or(false);
+
+    if !already_current {
+        fs::write(&path, content).map_err(|error| error.to_string())?;
+    }
+
+    Ok(DawBridgeInstallResult {
+        installed: true,
+        already_current,
+        path: path.to_string_lossy().into_owned(),
+        instructions: instructions.into(),
+    })
+}
+
+pub fn install_logic_bridge() -> Result<DawBridgeInstallResult, String> {
+    install_companion_script(
+        "logic",
+        "aera_logic_osc.py",
+        LOGIC_OSC_SCRIPT,
+        "Configure Logic Pro Controller Assignments for AERA's loopback OSC command and feedback paths, then run this local companion. See docs/LOGIC_SKILL.md.",
+    )
+}
+
+pub fn install_pro_tools_bridge() -> Result<DawBridgeInstallResult, String> {
+    install_companion_script(
+        "protools",
+        "aera_ptsl_bridge.py",
+        PRO_TOOLS_WRAPPER,
+        "Provide a helper built against Avid's Pro Tools Scripting SDK, then run this wrapper with --helper /path/to/helper. See docs/PROTOOLS_SKILL.md.",
+    )
 }
 
 pub fn install_fl_studio_bridge() -> Result<DawBridgeInstallResult, String> {
