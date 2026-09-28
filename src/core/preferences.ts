@@ -32,6 +32,8 @@ export interface AeraPreferences {
   spatialBehavior: SpatialBehavior;
   wakeWordEnabled: boolean;
   onboardingComplete: boolean;
+  visualContextEnabled: boolean;
+  visualModel: string;
 }
 
 const STORAGE_KEY = "aera.preferences.v1";
@@ -50,6 +52,8 @@ export const DEFAULT_PREFERENCES: AeraPreferences = {
   spatialBehavior: "adaptive",
   wakeWordEnabled: false,
   onboardingComplete: false,
+  visualContextEnabled: false,
+  visualModel: "",
 };
 
 export function loadPreferences(): AeraPreferences {
@@ -98,6 +102,14 @@ export function loadPreferences(): AeraPreferences {
         typeof parsed.onboardingComplete === "boolean"
           ? parsed.onboardingComplete
           : DEFAULT_PREFERENCES.onboardingComplete,
+      visualContextEnabled:
+        typeof parsed.visualContextEnabled === "boolean"
+          ? parsed.visualContextEnabled
+          : DEFAULT_PREFERENCES.visualContextEnabled,
+      visualModel:
+        typeof parsed.visualModel === "string"
+          ? parsed.visualModel
+          : DEFAULT_PREFERENCES.visualModel,
     };
   } catch {
     return DEFAULT_PREFERENCES;
