@@ -39,6 +39,45 @@ export async function moveOrbHost(x: number, y: number) {
   if (isTauriRuntime()) await invoke("move_orb", { x, y });
 }
 
+export async function moveOrbHostPhysical(x: number, y: number) {
+  if (isTauriRuntime()) {
+    await invoke("move_orb_physical", { x: Math.round(x), y: Math.round(y) });
+  }
+}
+
+export async function getOrbPhysicalPosition() {
+  if (!isTauriRuntime()) return { x: 0, y: 0 };
+  const position = await getCurrentWindow().outerPosition();
+  return { x: position.x, y: position.y };
+}
+
+export async function glideOrbHostPhysical(
+  x: number,
+  y: number,
+  reducedMotion = false,
+) {
+  if (!isTauriRuntime()) return;
+
+  if (reducedMotion) {
+    await moveOrbHostPhysical(x, y);
+    return;
+  }
+
+  const start = await getOrbPhysicalPosition();
+  const steps = 8;
+  for (let step = 1; step <= steps; step += 1) {
+    const t = step / steps;
+    const eased = 1 - Math.pow(1 - t, 3);
+    await moveOrbHostPhysical(
+      start.x + (x - start.x) * eased,
+      start.y + (y - start.y) * eased,
+    );
+    if (step < steps) {
+      await new Promise((resolve) => window.setTimeout(resolve, 18));
+    }
+  }
+}
+
 export async function setClickThrough(enabled: boolean) {
   if (isTauriRuntime()) await invoke("set_click_through", { enabled });
 }

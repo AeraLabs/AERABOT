@@ -97,6 +97,13 @@ fn move_orb(window: WebviewWindow, x: f64, y: f64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn move_orb_physical(window: WebviewWindow, x: i32, y: i32) -> Result<(), String> {
+    window
+        .set_position(tauri::PhysicalPosition::new(x, y))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn list_monitors(window: WebviewWindow) -> Result<Vec<MonitorSnapshot>, String> {
     let monitors = window
         .available_monitors()
@@ -221,6 +228,7 @@ pub fn run() {
             set_click_through,
             set_orb_size,
             move_orb,
+            move_orb_physical,
             list_monitors,
             probe_local_ai,
             local_chat,

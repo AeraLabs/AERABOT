@@ -10,6 +10,7 @@ export interface AeraPreferences {
   aiProvider: AiProviderPreference;
   aiModel: string;
   talkBack: TalkBackPreference;
+  spatialAwareness: boolean;
 }
 
 const STORAGE_KEY = "aera.preferences.v1";
@@ -21,6 +22,7 @@ export const DEFAULT_PREFERENCES: AeraPreferences = {
   aiProvider: "auto",
   aiModel: "",
   talkBack: "auto",
+  spatialAwareness: true,
 };
 
 export function loadPreferences(): AeraPreferences {
@@ -43,6 +45,10 @@ export function loadPreferences(): AeraPreferences {
       talkBack: ["auto", "text", "voice"].includes(parsed.talkBack ?? "")
         ? (parsed.talkBack as TalkBackPreference)
         : DEFAULT_PREFERENCES.talkBack,
+      spatialAwareness:
+        typeof parsed.spatialAwareness === "boolean"
+          ? parsed.spatialAwareness
+          : DEFAULT_PREFERENCES.spatialAwareness,
     };
   } catch {
     return DEFAULT_PREFERENCES;
