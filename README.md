@@ -88,6 +88,8 @@ Implemented:
 - play transport through loopback OSC
 - stop transport through loopback OSC
 - pause transport through loopback OSC
+- read live REAPER project/transport/track state through a read-only Lua ReaScript
+- expose verified selected-track context to the local model while REAPER is foreground
 - journal executed actions
 
 The local model proposes semantic actions. The Skill validates the target and input. AERA Core owns execution.
@@ -228,11 +230,9 @@ Destructive future operations must require confirmation. Reversible operations s
 These are still future work:
 
 - always-listening wake word
-- active third-party window geometry
-- window occlusion avoidance using real external-window bounds
 - screen/application visual inspection
-- bidirectional REAPER state
-- REAPER track/project inspection
+- automatic Accessibility-permission onboarding on macOS
+- REAPER mutating track operations beyond transport
 - deeper DAW operations such as arm/mute/solo/parameters
 - WAVR/Ableton/FL Studio/Pro Tools Skills
 - Unreal/Blender Skills

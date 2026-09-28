@@ -88,3 +88,78 @@ The next meaningful expansion should use REAPER's stronger integration surfaces 
 7. recording only after a more explicit permission and file-creation policy is designed
 
 AERA should not advertise a capability until the corresponding backend is real and testable.
+
+
+## Live project and track inspection
+
+The repository now includes:
+
+```text
+skills/reaper/reascript/aera_bridge.lua
+```
+
+This is a read-only deferred Lua ReaScript. REAPER ships with embedded Lua support, so it does not require Python or another runtime. ReaScript's deferred mode is designed for scripts that react to changing playback/project state. citeturn214787search1
+
+### Install the bridge
+
+1. In REAPER open **Options -> Show REAPER resource path in explorer/finder**.
+2. Open the `Scripts` directory.
+3. Copy `aera_bridge.lua` into `Scripts/AERA/`.
+4. Open REAPER's Actions window.
+5. Choose **ReaScript: Load...** and load the script.
+6. Run it. It remains active as a deferred script until stopped from REAPER's Actions menu.
+
+The script writes:
+
+```text
+<REAPER resource>/Scripts/AERA/aera-state.json
+```
+
+AERA reads that file locally. Nothing is sent to the network.
+
+### Snapshot contents
+
+The bridge currently publishes:
+
+- REAPER version
+- current project name/file
+- REAPER project state-change counter
+- playing / paused / recording state
+- play and edit-cursor position
+- project length
+- current BPM
+- track count
+- per-track GUID and name
+- selection state
+- mute / solo
+- record arm
+- record monitoring
+- volume / pan
+- media-item count
+- FX count
+- folder depth
+- selected-track insert FX names
+
+The API backing these values is REAPER's own ReaScript interface: `GetPlayStateEx`, `GetPlayPositionEx`, `GetProjectStateChangeCount`, `CountTracks`, `GetTrackState`, `GetTrackName`, `TrackFX_GetCount`, and related calls. citeturn953479search1turn220183search0
+
+### Privacy boundary
+
+The full project file path remains in the local bridge snapshot because it is useful to future native project operations, but AERA's model-context formatter deliberately omits the path. When REAPER is foreground, the model receives only a compact verified summary such as project name, transport state, BPM, track count, and selected-track state.
+
+### Bidirectional architecture
+
+```text
+                    AERA
+                      │
+         semantic command / response
+                      │
+       ┌──────────────┴──────────────┐
+       │                             │
+       ▼                             ▼
+ REAPER OSC (write)          ReaScript snapshot (read)
+ play / stop / pause         project / tracks / FX
+       │                             │
+       └──────────── REAPER ─────────┘
+```
+
+This is the first real bidirectional DAW integration: AERA can issue supported transport commands and independently verify/read REAPER's live project state.

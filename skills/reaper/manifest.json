@@ -1,7 +1,7 @@
 {
   "id": "reaper",
   "name": "REAPER",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "publisher": "AeraLabs",
   "capabilities": [
     "software.open",
@@ -25,7 +25,9 @@
     "launch": true,
     "transport": true,
     "trackControl": false,
-    "projectInspection": false
+    "projectInspection": true,
+    "liveProjectState": true,
+    "trackInspection": true
   },
   "permissions": {
     "software.open": "safe",
@@ -33,5 +35,5 @@
     "transport.stop": "safe",
     "transport.pause": "safe"
   },
-  "notes": "REAPER detection/launch is native and whitelisted. Transport uses optional loopback-only OSC when AERA_REAPER_OSC_ENABLED=1; track/project operations remain disabled until backed by validated OSC/ReaScript bridges."
+  "notes": "REAPER launch is native and whitelisted. Transport uses optional loopback-only OSC. A read-only deferred Lua ReaScript can publish live local project/track state to REAPER's Scripts/AERA directory. Mutating track/project operations remain disabled until reversible action semantics are implemented."
 }

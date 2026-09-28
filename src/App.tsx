@@ -37,6 +37,12 @@ import {
   planSpatialTarget,
 } from "./platform/spatialAwareness";
 import { getReaperOscStatus, type ReaperOscStatus } from "./platform/reaperOsc";
+import {
+  getReaperState,
+  reaperModelContext,
+  reaperTransportLabel,
+  type ReaperBridgeStatus,
+} from "./platform/reaperState";
 import { reaperSkill } from "./skills/reaper";
 
 type TranscriptEntry = {
@@ -82,6 +88,7 @@ export function App() {
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
   const [reaperStatus, setReaperStatus] = useState<KnownAppStatus | null>(null);
   const [reaperOscStatus, setReaperOscStatus] = useState<ReaperOscStatus | null>(null);
+  const [reaperBridge, setReaperBridge] = useState<ReaperBridgeStatus | null>(null);
   const [foreground, setForeground] = useState<ForegroundWindowSnapshot | null>(null);
   const [monitors, setMonitors] = useState<MonitorSnapshot[]>([]);
   const [serviceBusy, setServiceBusy] = useState(false);
@@ -183,6 +190,27 @@ export function App() {
       disposed = true;
       window.clearInterval(timer);
       window.clearInterval(monitorTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    const pollReaper = async () => {
+      try {
+        const status = await getReaperState();
+        if (!disposed) setReaperBridge(status);
+      } catch {
+        // A missing companion script is a normal disconnected state.
+      }
+    };
+
+    pollReaper();
+    const timer = window.setInterval(pollReaper, 600);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -381,6 +409,18 @@ export function App() {
           model,
           messages: [
             ...history,
+            ...(foreground &&
+            isReaperForeground(foreground) &&
+            reaperBridge?.available &&
+            !reaperBridge.stale &&
+            reaperBridge.state
+              ? [
+                  {
+                    role: "system" as const,
+                    content: reaperModelContext(reaperBridge.state),
+                  },
+                ]
+              : []),
             { role: "user", content: clean },
           ],
         },
@@ -560,6 +600,23 @@ export function App() {
               >
                 FOCUS
               </span>
+              <span
+                className={
+                  reaperBridge?.available && !reaperBridge.stale
+                    ? "service-on"
+                    : "service-off"
+                }
+                title={
+                  reaperBridge?.available && reaperBridge.state
+                    ? "REAPER live bridge · " +
+                      reaperBridge.state.projectName +
+                      " · " +
+                      reaperTransportLabel(reaperBridge.state)
+                    : reaperBridge?.error ?? "REAPER live bridge disconnected"
+                }
+              >
+                LIVE
+              </span>
               <button
                 type="button"
                 className="refresh-button"
@@ -597,6 +654,26 @@ export function App() {
               ))
             )}
           </div>
+
+          {reaperBridge?.available && !reaperBridge.stale && reaperBridge.state && (
+            <div className="reaper-livebar">
+              <span>REAPER LIVE</span>
+              <strong>{reaperBridge.state.projectName}</strong>
+              <small>
+                {reaperTransportLabel(reaperBridge.state)}
+                {" · "}
+                {reaperBridge.state.bpm.toFixed(1)} BPM
+                {" · "}
+                {reaperBridge.state.trackCount} tracks
+                {reaperBridge.state.selectedTrack
+                  ? " · selected: " +
+                    reaperBridge.state.selectedTrack.index +
+                    " " +
+                    reaperBridge.state.selectedTrack.name
+                  : ""}
+              </small>
+            </div>
+          )}
 
           <form className="command-form" onSubmit={submitCommand}>
             <button

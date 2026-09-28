@@ -41,6 +41,10 @@
     "targets": "all",
     "category": "Productivity",
     "shortDescription": "AERA local-first desktop AI companion",
-    "longDescription": "AERA is a local-first spatial desktop companion and software control layer."
+    "longDescription": "AERA is a local-first spatial desktop companion and software control layer.",
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ]
   }
 }

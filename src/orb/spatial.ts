@@ -103,6 +103,14 @@ export function chooseWindowAwarePlacement(
   const maxX = viewport.x + viewport.width - orbSize - margin;
   const maxY = viewport.y + viewport.height - orbSize - margin;
   const focusCenter = rectCenter(focused);
+  const viewportArea = Math.max(1, viewport.width * viewport.height);
+  const coverage = overlapArea(viewport, focused) / viewportArea;
+
+  // Maximized/fullscreen workspaces deserve the quietest possible posture.
+  // Do not hover beside the center of a DAW, editor, game, or presentation.
+  if (coverage >= 0.82) {
+    return { x: maxX, y: minY };
+  }
 
   const clampPoint = (point: Point): Point => ({
     x: clamp(point.x, minX, maxX),
