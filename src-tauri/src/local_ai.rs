@@ -81,8 +81,15 @@ fn normalize_loopback_base(raw: &str) -> Result<String, String> {
     let host = url
         .host_str()
         .ok_or_else(|| "Local OpenAI URL has no host.".to_string())?;
+    // url::Url may expose an IPv6 literal with brackets depending on the
+    // parsed representation. Normalize only that syntax; the allowlist
+    // remains restricted to explicit loopback hosts.
+    let normalized_host = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
 
-    if !matches!(host, "127.0.0.1" | "localhost" | "::1") {
+    if !matches!(normalized_host, "127.0.0.1" | "localhost" | "::1") {
         return Err("Local OpenAI URL must resolve to explicit loopback only.".into());
     }
 
