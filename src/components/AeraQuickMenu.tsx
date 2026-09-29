@@ -1,6 +1,10 @@
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import type {
+  AeraPreferences,
+  SpatialBehavior,
+  TalkBackPreference,
+} from "../core/preferences";
 import type { OrbState } from "../orb/state";
-import type { AeraPreferences } from "../core/preferences";
 
 interface AeraQuickMenuProps {
   state: OrbState;
@@ -16,15 +20,20 @@ interface AeraQuickMenuProps {
   onVoice(): void;
   onMove(): void;
   onStudio(): void;
-  onVoiceSound(): void;
+  onSoundToggle(): void;
+  onMicToggle(): void;
+  onTalkBackChange(value: TalkBackPreference): void;
   onAiConnections(): void;
-  onDesktopBehavior(): void;
+  onSpatialToggle(): void;
+  onSpatialBehaviorChange(value: SpatialBehavior): void;
   onAdvanced(): void;
   onClose(): void;
   onQuit(): void;
 }
 
 export function AeraQuickMenu(props: AeraQuickMenuProps) {
+  const [section, setSection] = useState<"voice" | "desktop" | null>(null);
+
   return (
     <section className="aera-quick-menu" aria-label="AERA menu">
       <header className="quick-menu-header">
@@ -55,8 +64,12 @@ export function AeraQuickMenu(props: AeraQuickMenuProps) {
       </form>
 
       <div className="quick-status" aria-label="AERA status">
-        <span className={props.brainReady ? "ready" : "needs"}>{props.brainReady ? "Brain connected" : "Brain needs setup"}</span>
-        <span className={props.voiceReady ? "ready" : "quiet"}>{props.voiceReady ? "Voice ready" : "Text + sounds"}</span>
+        <span className={props.brainReady ? "ready" : "needs"}>
+          {props.brainReady ? "Brain connected" : "Brain needs setup"}
+        </span>
+        <span className={props.voiceReady ? "ready" : "quiet"}>
+          {props.voiceReady ? "Voice ready" : "Text + sounds"}
+        </span>
         {props.studioName && <span className="ready">{props.studioName}</span>}
       </div>
 
@@ -67,16 +80,71 @@ export function AeraQuickMenu(props: AeraQuickMenuProps) {
         <button type="button" onClick={props.onStudio}>
           <b>Studio Mode</b><small>{props.state === "STUDIO" ? "Active now" : "Focus on creative work"}</small>
         </button>
-        <button type="button" onClick={props.onVoiceSound}>
-          <b>Voice & Sound</b><small>{props.preferences.muted ? "Sounds off" : "Sounds on"} · {props.preferences.talkBack}</small>
+        <button
+          type="button"
+          className={section === "voice" ? "selected" : ""}
+          onClick={() => setSection((current) => current === "voice" ? null : "voice")}
+        >
+          <b>Voice & Sound</b>
+          <small>{props.preferences.micEnabled ? "Mic on" : "Mic off"} · {props.preferences.muted ? "quiet" : "sounds on"}</small>
         </button>
         <button type="button" onClick={props.onAiConnections}>
           <b>AI Connections</b><small>Brain status and model setup</small>
         </button>
-        <button type="button" onClick={props.onDesktopBehavior}>
-          <b>Desktop Behavior</b><small>{props.preferences.spatialAwareness ? props.preferences.spatialBehavior : "Paused"}</small>
+        <button
+          type="button"
+          className={section === "desktop" ? "selected" : ""}
+          onClick={() => setSection((current) => current === "desktop" ? null : "desktop")}
+        >
+          <b>Desktop Behavior</b>
+          <small>{props.preferences.spatialAwareness ? props.preferences.spatialBehavior : "Paused"}</small>
         </button>
       </div>
+
+      {section === "voice" && (
+        <div className="quick-subpanel">
+          <label>
+            <span><b>Microphone</b><small>Allow AERA to listen when asked</small></span>
+            <input type="checkbox" checked={props.preferences.micEnabled} onChange={props.onMicToggle} />
+          </label>
+          <label>
+            <span><b>AERA sounds</b><small>Glassy state cues and little reactions</small></span>
+            <input type="checkbox" checked={!props.preferences.muted} onChange={props.onSoundToggle} />
+          </label>
+          <label>
+            <span><b>Talk-back</b><small>How AERA answers out loud</small></span>
+            <select
+              value={props.preferences.talkBack}
+              onChange={(event) => props.onTalkBackChange(event.target.value as TalkBackPreference)}
+            >
+              <option value="auto">Automatic</option>
+              <option value="voice">Local voice</option>
+              <option value="text">Text only</option>
+            </select>
+          </label>
+        </div>
+      )}
+
+      {section === "desktop" && (
+        <div className="quick-subpanel">
+          <label>
+            <span><b>Move with my workspace</b><small>React to active windows instead of sitting still</small></span>
+            <input type="checkbox" checked={props.preferences.spatialAwareness} onChange={props.onSpatialToggle} />
+          </label>
+          <div className="behavior-pills">
+            {(["quiet", "adaptive", "companion"] as SpatialBehavior[]).map((behavior) => (
+              <button
+                type="button"
+                key={behavior}
+                className={props.preferences.spatialBehavior === behavior ? "active" : ""}
+                onClick={() => props.onSpatialBehaviorChange(behavior)}
+              >
+                {behavior}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <footer className="quick-menu-footer">
         <button type="button" onClick={props.onAdvanced}>Advanced / Diagnostics</button>
