@@ -38,6 +38,7 @@ import {
 import { answerActionHistoryQuery } from "./core/actionHistoryQueries";
 import {
   acknowledgementFor,
+  actionConfirmationFor,
   confusionFor,
   vibeSystemInstruction,
 } from "./core/personality";
@@ -969,10 +970,14 @@ export function App() {
 
       const result = await runtime.execute(action);
       const reply = result.ok
-        ? verifiedActionReply(
+        ? actionConfirmationFor(
+            preferences.vibe,
+            verifiedActionReply(
+              directIntent.capability,
+              result.result,
+              directIntent.successMessage,
+            ),
             directIntent.capability,
-            result.result,
-            directIntent.successMessage,
           )
         : "I couldn't complete that command: " +
           ("error" in result && result.error
@@ -1121,10 +1126,14 @@ export function App() {
         } else {
           const result = await runtime.execute(action);
           if (result.ok) {
-            reply = verifiedActionReply(
+            reply = actionConfirmationFor(
+              preferences.vibe,
+              verifiedActionReply(
+                plan.capability,
+                result.result,
+                plan.message,
+              ),
               plan.capability,
-              result.result,
-              plan.message,
             );
             if (plan.capability === "software.open" && isCoreDawId(plan.input.appId)) {
               setDawStatuses((current) =>
