@@ -53,6 +53,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - run: npm install
+      - name: Generate branded AERA app icons
+        run: npm run icons
+      - name: Verify generated app icons
+        run: |
+          test -s src-tauri/icons/icon.icns
+          test -s src-tauri/icons/icon.ico
+          test -s src-tauri/icons/128x128@2x.png
       - name: Build frontend for Tauri context
         run: npm run build
       - name: Verify native architecture
@@ -94,6 +101,13 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
       - run: npm install
+      - name: Generate branded AERA app icons
+        run: npm run icons
+      - name: Verify generated app icons
+        shell: bash
+        run: |
+          test -s src-tauri/icons/icon.ico
+          test -s src-tauri/icons/128x128@2x.png
       - name: Build frontend for Tauri context
         run: npm run build
       - name: Native Rust tests
