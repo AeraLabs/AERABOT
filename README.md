@@ -13,22 +13,22 @@ A model is never treated as proof that an action happened. Real computer actions
 
 ## Current downloads
 
-**AERA Orb 0.1.0 · Build 105 · source `ec861a0` · September 28, 2026**
+**AERA Orb 0.1.0 · Build 111 · source `ab58bde` · September 28, 2026**
 
-All three binaries below were produced from the **same current `main` source commit** and passed the complete GitHub Actions build for Build 105: frontend typecheck/tests/build, native Rust tests, and platform packaging. These are development builds; signing, macOS notarization, and the production updater are not finished yet.
+All three binaries below were produced from the **same current `main` source commit** and passed the complete GitHub Actions build for Build 111: frontend typecheck/tests/build, native Rust tests, branded native icon generation/verification, and platform packaging. The macOS jobs also passed the runtime-linkage check added after the Intel Swift-runtime launch failure. These are development builds; signing, macOS notarization, and the production updater are not finished yet.
 
-> **Build 105 status:** these downloads include the current persistent local action journal, runtime extraction/CI hardening, explicit opt-in one-shot foreground visual context, and the latest DAW integration work present in `main` at source `ec861a0`.
+> **Build 111 status:** these downloads include the current persistent local action journal, explicit opt-in one-shot foreground visual context, the latest DAW integration work, the Intel macOS Swift-runtime linker fix, and the new branded AERA application icon assets present in `main` at source `ab58bde`.
 
 | Platform | Architecture | Current build | Build verification |
 |---|---|---|---|
-| **macOS — Apple Silicon** | M1 / M2 / M3 / M4+ · `aarch64-apple-darwin` | **[Download Apple Silicon build](https://github.com/CLIdaho/AERABOT/actions/runs/36509361361/artifacts/11008711999)** | ✅ Build 105 · `AERA Orb_0.1.0_aarch64.dmg` + `.app` |
-| **macOS — Intel** | Intel x86_64 · `x86_64-apple-darwin` | **[Download Intel Mac build](https://github.com/CLIdaho/AERABOT/actions/runs/36509361361/artifacts/11008169803)** | ✅ Build 105 · `AERA Orb_0.1.0_x64.dmg` + `.app` |
-| **Windows 10/11** | x64 · `x86_64-pc-windows-msvc` | **[Download Windows x64 build](https://github.com/CLIdaho/AERABOT/actions/runs/36509361361/artifacts/11008809307)** | ✅ Build 105 · `.msi` + setup `.exe` |
+| **macOS — Apple Silicon** | M1 / M2 / M3 / M4+ · `aarch64-apple-darwin` | **[Download Apple Silicon build](https://github.com/CLIdaho/AERABOT/actions/runs/36515358563/artifacts/11011185924)** | ✅ Build 111 · `AERA Orb_0.1.0_aarch64.dmg` + `.app` |
+| **macOS — Intel** | Intel x86_64 · `x86_64-apple-darwin` | **[Download Intel Mac build](https://github.com/CLIdaho/AERABOT/actions/runs/36515358563/artifacts/11010829341)** | ✅ Build 111 · `AERA Orb_0.1.0_x64.dmg` + `.app` · Swift runtime linkage verified |
+| **Windows 10/11** | x64 · `x86_64-pc-windows-msvc` | **[Download Windows x64 build](https://github.com/CLIdaho/AERABOT/actions/runs/36515358563/artifacts/11010834608)** | ✅ Build 111 · `.msi` + setup `.exe` |
 
-**Full build run:** [AERA Desktop Builds #105](https://github.com/CLIdaho/AERABOT/actions/runs/36509361361)
+**Full build run:** [AERA Desktop Builds #111](https://github.com/CLIdaho/AERABOT/actions/runs/36515358563)
 
 > GitHub Actions artifacts are ZIP downloads and currently expire on **December 28, 2026**. For a private repository, GitHub sign-in with repository access is required. A future signed release channel will replace these temporary artifact links.
-> **Intel Mac note:** Build 105 is compiled and packaged on GitHub's dedicated `macos-15-intel` runner as a real `x86_64-apple-darwin` target. Use the x64 DMG above on Intel Macs. Because the app is still unsigned/unnotarized, macOS may block first launch; CI success confirms the Intel package was built and tested, but it is not a physical-hardware compatibility guarantee for every older Intel Mac.
+> **Intel Mac note:** Build 111 is compiled and packaged on GitHub's dedicated `macos-15-intel` runner as a real `x86_64-apple-darwin` target. It includes the fix for the Build 105 `@rpath/libswiftCore.dylib` / missing `LC_RPATH` launch failure, and CI now inspects the finished Mach-O runtime linkage before upload. Use the x64 DMG above on Intel Macs. Because the app is still unsigned/unnotarized, macOS may still require **Open Anyway** on first launch; CI verification is not a substitute for physical-hardware soak testing.
 
 
 ### Platform status — what works today
@@ -54,7 +54,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 | Logic Pro Skill | ◐ | ◐ | — | macOS-only OSC/controller-assignment bridge; controller setup is not fully automatic yet |
 | Pro Tools Skill | ◐ | ◐ | ◐ | AERA PTSL wrapper/contract exists; the Avid SDK helper still needs completion/build integration |
 | **WAVR first-party Skill** | ✅ | ✅ | ✅ | Native AeraLabs bridge with verified project/transport/full-track state, pause/seek/tempo, track selection, mute/solo/arm, volume/pan, FX inspection and undo where prior state is captured |
-| Opt-in screen / visual context | ◐ | ◐ | ◐ | Build 105 includes explicit session-scoped one-shot foreground capture; broader continuous/context-aware modes are not finished |
+| Opt-in screen / visual context | ◐ | ◐ | ◐ | Build 111 includes explicit session-scoped one-shot foreground capture; broader continuous/context-aware modes are not finished |
 | Signed installers | ⏳ | ⏳ | ⏳ | Current artifacts are development packages |
 | macOS notarization | ⏳ | ⏳ | — | Not finished |
 | Automatic updater | ⏳ | ⏳ | ⏳ | Architecture-aware production update channel not finished |
@@ -62,7 +62,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 
 ### Verification level
 
-Build 105 is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, and package successfully.
+Build 111 is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, generate/verify their native application icons, and package successfully. The two macOS jobs additionally passed the Swift runtime-linkage check.
 
 It does **not** yet mean every build has completed a long-duration launch/audio/DAW test on physical hardware. In particular, **Intel Mac remains a mandatory target**, but the current README intentionally distinguishes successful Intel packaging from a real Intel-hardware soak test.
 
