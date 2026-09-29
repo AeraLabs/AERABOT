@@ -6,11 +6,11 @@ Intel macOS is a release requirement, not a compatibility afterthought.
 
 | Platform | Rust target | Runtime profile | Package status |
 |---|---|---|---|
-| macOS Apple Silicon | `aarch64-apple-darwin` | AERA Accelerated | ✅ Build 105 package verified |
-| macOS Intel | `x86_64-apple-darwin` | AERA Standard / CPU fallback | ✅ Build 105 package verified |
-| Windows 10/11 x64 | `x86_64-pc-windows-msvc` | Standard / GPU-dependent | ✅ Build 105 package verified |
+| macOS Apple Silicon | `aarch64-apple-darwin` | AERA Accelerated | ✅ Build 111 package verified |
+| macOS Intel | `x86_64-apple-darwin` | AERA Standard / CPU fallback | ✅ Build 111 package verified |
+| Windows 10/11 x64 | `x86_64-pc-windows-msvc` | Standard / GPU-dependent | ✅ Build 111 package verified |
 
-Current binary source: `ec861a0087c063aa217d3cadfe96653488178d27` (Build 105).
+Current binary source: `ab58bdefc6af8d87a7b4df9787377957302389c2` (Build 111).
 
 Downloads are maintained in the repository README so users see the architecture choice and capability matrix before installing.
 
@@ -44,8 +44,10 @@ Downloads are maintained in the repository README so users see the architecture 
 6. OS-specific behavior belongs behind the native platform bridge.
 7. Efficiency mode reduces geometry, particles, antialias cost, and pixel ratio without losing AERA's identity.
 8. CI package success must not be described as physical-hardware soak certification.
-9. macOS Accessibility and future Screen Recording access must remain explicit user permissions.
-10. Unsupported integrations must report their limitation instead of simulating success.
+9. macOS release packaging must fail if Swift libraries are linked through `@rpath` without a verified runtime search path.
+10. Branded native app icons must be generated and verified before packaging.
+11. macOS Accessibility and future Screen Recording access must remain explicit user permissions.
+12. Unsupported integrations must report their limitation instead of simulating success.
 
 ## Still required before production release
 
