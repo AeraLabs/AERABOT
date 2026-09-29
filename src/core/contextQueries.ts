@@ -96,7 +96,7 @@ export function answerLocalContextQuery(
 
     return {
       message:
-        "I do not have screen-content vision yet. I can sense native desktop state such as the foreground app, supported window geometry, monitors, installed DAWs, and connected Skill state." +
+        "I can sense native desktop state such as the foreground app, supported window geometry, monitors, installed DAWs, and connected Skill state. I can also inspect the foreground window with a one-shot local capture when Visual Context is enabled and you explicitly ask me to look." +
         appText +
         geometryText,
       meta: "AERA awareness boundary · local",
