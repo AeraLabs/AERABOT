@@ -45,14 +45,15 @@ describe("verified local context queries", () => {
     expect(answer?.message).not.toContain("Pro Tools");
   });
 
-  it("does not pretend foreground awareness is screen vision", () => {
+  it("describes the explicit one-shot visual boundary", () => {
     const answer = answerLocalContextQuery("can you see my screen?", {
       foreground,
       dawStatuses: [],
       spatialAwareness: true,
       spatialBehavior: "companion",
     });
-    expect(answer?.message).toContain("do not have screen-content vision yet");
+    expect(answer?.message).toContain("one-shot local capture");
+    expect(answer?.message).toContain("explicitly ask me to look");
     expect(answer?.message).toContain("foreground");
   });
 });
