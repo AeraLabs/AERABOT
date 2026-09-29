@@ -1,4 +1,8 @@
 import type { LocalProviderStatus } from "../ai/local";
+import {
+  buildSystemHealth,
+  type SkillSummary,
+} from "../core/systemHealth";
 import type { SpeechStatus } from "../audio/localSpeech";
 import type { KnownAppStatus } from "../platform/apps";
 import type { ForegroundWindowSnapshot } from "../platform/bridge";
@@ -8,6 +12,7 @@ import type { WakeWordStatus } from "../platform/wakeword";
 
 export interface SkillManagerProps {
   providers: LocalProviderStatus[];
+  skills: SkillSummary[];
   speech: SpeechStatus | null;
   daws: KnownAppStatus[];
   reaperBridge: ReaperBridgeStatus | null;
@@ -96,6 +101,22 @@ export function SkillManager(props: SkillManagerProps) {
     bridgeState(Boolean(protools?.installed), props.proToolsBridge),
     props.wavrBridge?.available && !props.wavrBridge.stale ? "ready" : "optional",
   ].filter((state) => state === "ready").length;
+
+  const health = buildSystemHealth({
+    providers: props.providers,
+    speech: props.speech,
+    wakeWord: props.wakeWord,
+    foreground: props.foreground,
+    daws: props.daws,
+    skills: props.skills,
+    reaperBridge: props.reaperBridge,
+    flStudioBridge: props.flStudioBridge,
+    abletonBridge: props.abletonBridge,
+    logicBridge: props.logicBridge,
+    proToolsBridge: props.proToolsBridge,
+    wavrBridge: props.wavrBridge,
+  });
+  const parityMap = new Map(health.daws.map((daw) => [daw.id, daw]));
 
   const rows = [
     {
@@ -308,8 +329,12 @@ export function SkillManager(props: SkillManagerProps) {
                   {!row.installed
                     ? "Not detected — nothing to configure."
                     : row.state === "ready"
-                      ? "Installed · verified live bridge."
-                      : "Installed · local bridge still needs setup."}
+                      ? "Installed · verified live bridge · " +
+                        (parityMap.get(row.id)?.parityPercent ?? 0) +
+                        "% parity."
+                      : "Installed · local bridge still needs setup · " +
+                        (parityMap.get(row.id)?.parityPercent ?? 0) +
+                        "% parity."}
                 </small>
               </div>
               <em className={row.state}>{badgeLabel(row.state)}</em>
@@ -343,6 +368,22 @@ export function SkillManager(props: SkillManagerProps) {
           </small>
         </div>
       )}
+
+      <div className="parity-strip" aria-label="DAW capability parity">
+        {health.daws
+          .filter((daw) => daw.installed)
+          .map((daw) => (
+            <div key={daw.id}>
+              <strong>{daw.name}</strong>
+              <span>{daw.parityPercent}%</span>
+              <i>
+                {daw.missingParityCapabilities.length
+                  ? "Next: " + daw.missingParityCapabilities[0]
+                  : "Target parity reached"}
+              </i>
+            </div>
+          ))}
+      </div>
 
       <footer className="skill-manager-footer">
         <small>

@@ -1270,6 +1270,7 @@ export function App() {
       {skillManagerOpen && (
         <SkillManager
           providers={providers}
+          skills={runtime.skills.list()}
           speech={speechStatus}
           daws={dawStatuses}
           reaperBridge={reaperBridge}
