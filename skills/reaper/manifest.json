@@ -1,13 +1,16 @@
 {
   "id": "reaper",
   "name": "REAPER",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "AeraLabs",
   "capabilities": [
     "software.open",
     "transport.play",
     "transport.stop",
-    "transport.pause"
+    "transport.pause",
+    "track.mute.set",
+    "track.solo.set",
+    "track.arm.set"
   ],
   "platforms": [
     "macos-arm64",
@@ -24,7 +27,8 @@
     "softwareDetection": true,
     "launch": true,
     "transport": true,
-    "trackControl": false,
+    "trackControl": true,
+    "reversibleTrackControl": true,
     "projectInspection": true,
     "liveProjectState": true,
     "trackInspection": true
@@ -33,7 +37,10 @@
     "software.open": "safe",
     "transport.play": "safe",
     "transport.stop": "safe",
-    "transport.pause": "safe"
+    "transport.pause": "safe",
+    "track.mute.set": "reversible",
+    "track.solo.set": "reversible",
+    "track.arm.set": "reversible"
   },
-  "notes": "REAPER launch is native and whitelisted. Transport uses optional loopback-only OSC. A read-only deferred Lua ReaScript can publish live local project/track state to REAPER's Scripts/AERA directory. Mutating track/project operations remain disabled until reversible action semantics are implemented."
+  "notes": "REAPER launch is native and whitelisted. Transport uses loopback OSC with live verification when the ReaScript bridge is running. The ReaScript publishes verified project/track state and accepts allowlisted reversible mute/solo/arm operations addressed by captured track GUID."
 }

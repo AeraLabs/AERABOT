@@ -40,6 +40,10 @@ import { parsePreferenceIntent } from "./core/preferenceIntent";
 import { answerVerifiedReaperQuery } from "./core/reaperQueries";
 import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
 import { isUndoIntent } from "./core/undoIntent";
+import {
+  answerSystemHealthQuery,
+  buildSystemHealth,
+} from "./core/systemHealth";
 import { OrbScene } from "./orb/OrbScene";
 import { paletteCssVariables } from "./orb/palette";
 import { quantizedWindowKey } from "./orb/spatial";
@@ -861,6 +865,29 @@ export function App() {
 
       appendAssistant(preferenceIntent.message, "AERA preference · local");
       await finishReply(preferenceIntent.message, "SUCCESS");
+      return;
+    }
+
+    const healthReply = answerSystemHealthQuery(
+      clean,
+      buildSystemHealth({
+        providers,
+        speech: speechStatus,
+        wakeWord: wakeWordStatus,
+        foreground,
+        daws: dawStatuses,
+        skills: runtime.skills.list(),
+        reaperBridge,
+        flStudioBridge,
+        abletonBridge,
+        logicBridge,
+        proToolsBridge,
+        wavrBridge,
+      }),
+    );
+    if (healthReply) {
+      appendAssistant(healthReply, "AERA diagnostics · verified local state");
+      await finishReply(healthReply, "SUCCESS");
       return;
     }
 
