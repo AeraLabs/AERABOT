@@ -5,6 +5,7 @@ export type TalkBackPreference = "auto" | "text" | "voice";
 export type PresenceStyle = "serene" | "balanced" | "expressive";
 export type OrbSizePreference = "compact" | "standard" | "large";
 export type SpatialBehavior = "quiet" | "adaptive" | "companion";
+export type AeraVibe = "calm" | "cute" | "professional" | "futuristic";
 
 export interface OrbPalette {
   primary: string;
@@ -34,6 +35,7 @@ export interface AeraPreferences {
   onboardingComplete: boolean;
   visualContextEnabled: boolean;
   visualModel: string;
+  vibe: AeraVibe;
 }
 
 const STORAGE_KEY = "aera.preferences.v1";
@@ -54,6 +56,7 @@ export const DEFAULT_PREFERENCES: AeraPreferences = {
   onboardingComplete: false,
   visualContextEnabled: false,
   visualModel: "",
+  vibe: "futuristic",
 };
 
 export function loadPreferences(): AeraPreferences {
@@ -107,6 +110,9 @@ export function loadPreferences(): AeraPreferences {
         typeof parsed.visualModel === "string"
           ? parsed.visualModel
           : DEFAULT_PREFERENCES.visualModel,
+      vibe: ["calm", "cute", "professional", "futuristic"].includes(parsed.vibe ?? "")
+        ? (parsed.vibe as AeraVibe)
+        : DEFAULT_PREFERENCES.vibe,
     };
   } catch {
     return DEFAULT_PREFERENCES;
