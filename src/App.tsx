@@ -34,11 +34,12 @@ import {
   saveAppearanceProfiles,
   type AppearanceProfile,
 } from "./core/appearanceProfiles";
+import { answerActionHistoryQuery } from "./core/actionHistoryQueries";
 import { answerLocalContextQuery } from "./core/contextQueries";
 import { parseDirectIntent } from "./core/directIntent";
 import { parsePreferenceIntent } from "./core/preferenceIntent";
 import { answerVerifiedReaperQuery } from "./core/reaperQueries";
-import { AeraRuntime, type RuntimeEvent } from "./core/runtime";
+import type { RuntimeEvent } from "./core/runtime";
 import { isUndoIntent } from "./core/undoIntent";
 import {
   answerSystemHealthQuery,
@@ -91,12 +92,7 @@ import {
   reaperTransportLabel,
   type ReaperBridgeStatus,
 } from "./platform/reaperState";
-import { abletonSkill } from "./skills/ableton";
-import { logicSkill } from "./skills/logic";
-import { proToolsSkill } from "./skills/protools";
-import { flStudioSkill } from "./skills/flstudio";
-import { reaperSkill } from "./skills/reaper";
-import { wavrSkill } from "./skills/wavr";
+import { useAeraRuntime } from "./hooks/useAeraRuntime";
 import {
   analyzeVisualContext,
   captureVisualContext,
@@ -132,16 +128,7 @@ function shortModelName(model: string) {
 }
 
 export function App() {
-  const runtime = useMemo(() => {
-    const instance = new AeraRuntime();
-    instance.skills.register(reaperSkill);
-    instance.skills.register(flStudioSkill);
-    instance.skills.register(proToolsSkill);
-    instance.skills.register(logicSkill);
-    instance.skills.register(abletonSkill);
-    instance.skills.register(wavrSkill);
-    return instance;
-  }, []);
+  const runtime = useAeraRuntime();
   const recorderRef = useRef<PcmRecorder | null>(null);
   const lastSpatialKeyRef = useRef("");
   const lastSpatialMoveRef = useRef(0);
@@ -845,6 +832,13 @@ export function App() {
         : result.error;
       appendAssistant(reply, "AERA journal · verified local action");
       await finishReply(reply, result.ok ? "SUCCESS" : "QUESTION");
+      return;
+    }
+
+    const historyReply = answerActionHistoryQuery(clean, runtime.journal.list());
+    if (historyReply) {
+      appendAssistant(historyReply, "AERA journal · persistent local history");
+      await finishReply(historyReply, "SUCCESS");
       return;
     }
 

@@ -57,4 +57,4 @@ Downloads are maintained in the repository README so users see the architecture 
 - long-session performance and memory testing
 - completed Pro Tools SDK helper packaging
 - more automatic Logic controller-assignment provisioning
-- opt-in visual context with strict capture boundaries
+- broader opt-in visual-context modes beyond the current explicit one-shot capture boundary

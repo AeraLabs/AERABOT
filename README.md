@@ -17,6 +17,8 @@ A model is never treated as proof that an action happened. Real computer actions
 
 All three binaries below were produced from the **same source commit** and passed the current GitHub Actions package build. These are development builds; signing, macOS notarization, and the production updater are not finished yet.
 
+> **Source status:** the repository has advanced beyond Build 85. Current source includes explicit opt-in local visual context, deeper DAW integration work, persistent local action history, and CI hardening that are not all present in the binaries linked below. The download table is intentionally tied to the exact source commit that produced those artifacts.
+
 | Platform | Architecture | Current build | Build verification |
 |---|---|---|---|
 | **macOS — Apple Silicon** | M1 / M2 / M3 / M4+ · `aarch64-apple-darwin` | **[Download Apple Silicon build](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760/artifacts/10996038510)** | ✅ CI typecheck/tests/build + native package |
@@ -50,7 +52,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 | Logic Pro Skill | ◐ | ◐ | — | macOS-only OSC/controller-assignment bridge; controller setup is not fully automatic yet |
 | Pro Tools Skill | ◐ | ◐ | ◐ | AERA PTSL wrapper/contract exists; the Avid SDK helper still needs completion/build integration |
 | **WAVR first-party Skill** | ✅ | ✅ | ✅ | Native AeraLabs bridge with verified project/transport/full-track state, pause/seek/tempo, track selection, mute/solo/arm, volume/pan, FX inspection and undo where prior state is captured |
-| Opt-in screen / visual context | ⏳ | ⏳ | ⏳ | Not shipped in the current binaries |
+| Opt-in screen / visual context | ⏳ | ⏳ | ⏳ | Implemented in current source as explicit session-scoped one-shot foreground capture; not shipped in Build 85 binaries |
 | Signed installers | ⏳ | ⏳ | ⏳ | Current artifacts are development packages |
 | macOS notarization | ⏳ | ⏳ | — | Not finished |
 | Automatic updater | ⏳ | ⏳ | ⏳ | Architecture-aware production update channel not finished |
@@ -151,7 +153,7 @@ Implemented:
 - first-run Skill Manager with verified readiness states rather than simple installed/not-installed flags
 - unified wake phrase → listening → local transcription → response/action → talk-back flow
 - first-party WAVR bridge with verified full-track/project context, transport, seek, tempo, track selection, mixer controls, FX inspection, and reversible state capture where available
-- journal executed actions
+- persistent local action journal with restart-safe history and undo state
 
 The local model proposes semantic actions. The Skill validates the target and input. AERA Core owns execution.
 
