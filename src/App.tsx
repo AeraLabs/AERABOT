@@ -390,7 +390,11 @@ export function App() {
         const status = await getWakeWordStatus();
         if (!disposed) setWakeWordStatus(status);
 
-        if (!preferences.wakeWordEnabled || !status.available) return;
+        if (
+          !preferences.wakeWordEnabled ||
+          !preferences.micEnabled ||
+          !status.available
+        ) return;
         const event = await consumeWakeWordEvent();
         if (!disposed && event) {
           runtime.setState("AWAKE");
@@ -408,7 +412,7 @@ export function App() {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [preferences.wakeWordEnabled, runtime]);
+  }, [preferences.micEnabled, preferences.wakeWordEnabled, runtime]);
 
   useEffect(() => {
     if (!foreground || panelOpen) return;
@@ -1368,18 +1372,36 @@ export function App() {
             runtime.setState(next);
             runtime.notify(next === "STUDIO" ? "Studio Mode. I’ll stay close to the work." : "Back to ambient.");
           }}
-          onVoiceSound={() => {
+          onSoundToggle={() => {
             patchPreferences({ muted: !preferences.muted });
             runtime.notify(preferences.muted ? "Sounds on." : "Sounds tucked away.");
+          }}
+          onMicToggle={() => {
+            patchPreferences({ micEnabled: !preferences.micEnabled });
+            runtime.notify(preferences.micEnabled ? "Microphone off." : "Microphone on.");
+          }}
+          onTalkBackChange={(talkBack) => {
+            patchPreferences({ talkBack });
+            runtime.notify(talkBack === "voice" ? "I’ll talk back when local voice is ready." : talkBack === "text" ? "Text replies only." : "Talk-back set to automatic.");
           }}
           onAiConnections={() => {
             setSkillManagerMode("advanced");
             setSkillManagerOpen(true);
           }}
-          onDesktopBehavior={() => {
+          onSpatialToggle={() => {
             const enabled = !preferences.spatialAwareness;
             patchPreferences({ spatialAwareness: enabled });
             runtime.notify(enabled ? "Desktop movement is on." : "I’ll stay where you put me.");
+          }}
+          onSpatialBehaviorChange={(spatialBehavior) => {
+            patchPreferences({ spatialAwareness: true, spatialBehavior });
+            runtime.notify(
+              spatialBehavior === "companion"
+                ? "Companion movement on."
+                : spatialBehavior === "quiet"
+                  ? "I’ll keep a lower profile."
+                  : "Adaptive movement on.",
+            );
           }}
           onAdvanced={() => setAdvancedOpen(true)}
           onClose={() => setPanelOpen(false)}
