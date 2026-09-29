@@ -54,7 +54,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 | Logic Pro Skill | ◐ | ◐ | — | macOS-only OSC/controller-assignment bridge; controller setup is not fully automatic yet |
 | Pro Tools Skill | ◐ | ◐ | ◐ | AERA PTSL wrapper/contract exists; the Avid SDK helper still needs completion/build integration |
 | **WAVR first-party Skill** | ✅ | ✅ | ✅ | Native AeraLabs bridge with verified project/transport/full-track state, pause/seek/tempo, track selection, mute/solo/arm, volume/pan, FX inspection and undo where prior state is captured |
-| Opt-in screen / visual context | ◐ | ◐ | ◐ | Build 105 includes explicit session-scoped one-shot foreground capture; broader continuous/context-aware modes are not finished |
+| Opt-in screen / visual context | ◐ | ◐ | ◐ | Build 111 includes explicit session-scoped one-shot foreground capture; broader continuous/context-aware modes are not finished |
 | Signed installers | ⏳ | ⏳ | ⏳ | Current artifacts are development packages |
 | macOS notarization | ⏳ | ⏳ | — | Not finished |
 | Automatic updater | ⏳ | ⏳ | ⏳ | Architecture-aware production update channel not finished |
@@ -62,7 +62,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 
 ### Verification level
 
-Build 105 is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, and package successfully.
+Build 111 is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, generate/verify their native application icons, and package successfully. The two macOS jobs additionally passed the Swift runtime-linkage check.
 
 It does **not** yet mean every build has completed a long-duration launch/audio/DAW test on physical hardware. In particular, **Intel Mac remains a mandatory target**, but the current README intentionally distinguishes successful Intel packaging from a real Intel-hardware soak test.
 
