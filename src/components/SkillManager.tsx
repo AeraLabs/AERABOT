@@ -98,12 +98,19 @@ export function SkillManager(props: SkillManagerProps) {
     Boolean(props.foreground?.available) &&
     (!props.foreground?.permissionRequired || Boolean(props.foreground?.permissionGranted));
 
-  const daws = [
+  const daws: Array<{
+    id: string;
+    name: string;
+    installed: boolean;
+    state: Readiness;
+    action?: () => void;
+    actionLabel?: string;
+  }> = [
     {
       id: "wavr",
       name: "WAVR",
       installed: Boolean(props.wavrBridge?.available),
-      state: props.wavrBridge?.available && !props.wavrBridge.stale ? "ready" as const : "optional" as const,
+      state: props.wavrBridge?.available && !props.wavrBridge.stale ? "ready" : "optional",
     },
     {
       id: "flstudio",
