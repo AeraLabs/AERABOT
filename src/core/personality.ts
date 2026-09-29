@@ -89,3 +89,15 @@ export function confusionFor(vibe: AeraVibe, seed = "aera") {
 export function vibeSystemInstruction(vibe: AeraVibe) {
   return VIBE_PROFILES[vibe].systemInstruction;
 }
+
+export function actionConfirmationFor(
+  vibe: AeraVibe,
+  message: string,
+  seed = "action",
+) {
+  const clean = message.trim();
+  if (!clean) return successFor(vibe, seed);
+  if (vibe === "professional" || vibe === "calm") return clean;
+  const acknowledgement = successFor(vibe, seed);
+  return acknowledgement + " — " + clean.replace(/^[A-Z]/, (value) => value.toLowerCase());
+}
