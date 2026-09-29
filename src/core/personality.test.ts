@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   acknowledgementFor,
+  actionConfirmationFor,
   confusionFor,
   vibeDefaults,
   vibeSystemInstruction,
@@ -26,6 +27,13 @@ describe("AERA personality", () => {
     );
     expect(confusionFor("futuristic", "brain")).toBe(
       confusionFor("futuristic", "brain"),
+    );
+  });
+
+  it("decorates only the expressive verified action styles", () => {
+    expect(actionConfirmationFor("cute", "Muted the selected track.", "mute")).toContain("—");
+    expect(actionConfirmationFor("professional", "Muted the selected track.", "mute")).toBe(
+      "Muted the selected track.",
     );
   });
 
