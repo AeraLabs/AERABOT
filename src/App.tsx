@@ -969,16 +969,21 @@ export function App() {
       }
 
       const result = await runtime.execute(action);
-      const reply = result.ok
-        ? actionConfirmationFor(
-            preferences.vibe,
-            verifiedActionReply(
-              directIntent.capability,
-              result.result,
-              directIntent.successMessage,
-            ),
+      const directVerifiedReply = result.ok
+        ? verifiedActionReply(
             directIntent.capability,
+            result.result,
+            directIntent.successMessage,
           )
+        : "";
+      const reply = result.ok
+        ? directVerifiedReply === directIntent.successMessage
+          ? actionConfirmationFor(
+              preferences.vibe,
+              directVerifiedReply,
+              directIntent.capability,
+            )
+          : directVerifiedReply
         : "I couldn't complete that command: " +
           ("error" in result && result.error
             ? result.error
@@ -1126,15 +1131,19 @@ export function App() {
         } else {
           const result = await runtime.execute(action);
           if (result.ok) {
-            reply = actionConfirmationFor(
-              preferences.vibe,
-              verifiedActionReply(
-                plan.capability,
-                result.result,
-                plan.message,
-              ),
+            const verifiedReply = verifiedActionReply(
               plan.capability,
+              result.result,
+              plan.message,
             );
+            reply =
+              verifiedReply === plan.message
+                ? actionConfirmationFor(
+                    preferences.vibe,
+                    verifiedReply,
+                    plan.capability,
+                  )
+                : verifiedReply;
             if (plan.capability === "software.open" && isCoreDawId(plan.input.appId)) {
               setDawStatuses((current) =>
                 current.map((status) =>
