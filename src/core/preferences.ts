@@ -21,6 +21,7 @@ export const DEFAULT_ORB_PALETTE: OrbPalette = {
 
 export interface AeraPreferences {
   muted: boolean;
+  micEnabled: boolean;
   quality: GraphicsQuality;
   motion: MotionPreference;
   aiProvider: AiProviderPreference;
@@ -42,6 +43,7 @@ const STORAGE_KEY = "aera.preferences.v1";
 
 export const DEFAULT_PREFERENCES: AeraPreferences = {
   muted: false,
+  micEnabled: true,
   quality: "auto",
   motion: "system",
   aiProvider: "auto",
@@ -66,6 +68,10 @@ export function loadPreferences(): AeraPreferences {
     const parsed = JSON.parse(raw) as Partial<AeraPreferences>;
     return {
       muted: typeof parsed.muted === "boolean" ? parsed.muted : DEFAULT_PREFERENCES.muted,
+      micEnabled:
+        typeof parsed.micEnabled === "boolean"
+          ? parsed.micEnabled
+          : DEFAULT_PREFERENCES.micEnabled,
       quality: ["auto", "ultra", "high", "balanced", "efficiency"].includes(parsed.quality ?? "")
         ? (parsed.quality as GraphicsQuality)
         : DEFAULT_PREFERENCES.quality,
