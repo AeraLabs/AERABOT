@@ -90,6 +90,14 @@ export async function beginNativeDrag() {
   if (isTauriRuntime()) await getCurrentWindow().startDragging();
 }
 
+export async function quitAera() {
+  if (isTauriRuntime()) {
+    await getCurrentWindow().close();
+    return;
+  }
+  window.close();
+}
+
 
 export interface ForegroundWindowBounds {
   x: number;
