@@ -62,6 +62,20 @@ jobs:
       - name: Native Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }}
       - run: npm run tauri build -- --target ${{ matrix.target }}
+      - name: Verify macOS runtime linkage
+        run: |
+          BIN="src-tauri/target/${{ matrix.target }}/release/aera-orb"
+          echo "Linked libraries:"
+          otool -L "$BIN"
+          echo "Runtime search paths:"
+          otool -l "$BIN" | grep -A3 LC_RPATH || true
+
+          if otool -L "$BIN" | grep -q '@rpath/libswiftCore.dylib'; then
+            if ! otool -l "$BIN" | grep -A3 LC_RPATH | grep -q '/usr/lib/swift'; then
+              echo "::error::Swift runtime is linked through @rpath but /usr/lib/swift is missing from LC_RPATH."
+              exit 1
+            fi
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: aera-macos-${{ matrix.target }}
