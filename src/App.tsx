@@ -481,6 +481,27 @@ export function App() {
   }, [preferences]);
 
   useEffect(() => {
+    if (activeProvider && activeModel) return;
+
+    let disposed = false;
+    const reconnect = async () => {
+      try {
+        const nextProviders = await probeLocalAI();
+        if (!disposed) setProviders(nextProviders);
+      } catch {
+        // AERA quietly retries local brain discovery; the user-facing menu
+        // remains available even when no runtime is running.
+      }
+    };
+
+    const timer = window.setInterval(reconnect, 5000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [activeModel, activeProvider]);
+
+  useEffect(() => {
     if (!activeProvider || availableModels.length === 0) return;
     if (preferences.aiModel && availableModels.includes(preferences.aiModel)) return;
     setPreferences((current) => ({ ...current, aiModel: availableModels[0] }));
