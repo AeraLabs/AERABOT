@@ -1287,6 +1287,16 @@ export function App() {
           quality={preferences.quality}
           palette={preferences.orbPalette}
           presence={preferences.presenceStyle}
+          desktopActivityKey={[
+            foreground?.appId,
+            foreground?.title,
+            foreground?.bounds?.x,
+            foreground?.bounds?.y,
+            foreground?.bounds?.width,
+            foreground?.bounds?.height,
+          ]
+            .filter((value) => value !== null && value !== undefined)
+            .join("|")}
         />
         <span className="orb-aura" />
       </button>
