@@ -6,11 +6,11 @@ Intel macOS is a release requirement, not a compatibility afterthought.
 
 | Platform | Rust target | Runtime profile | Package status |
 |---|---|---|---|
-| macOS Apple Silicon | `aarch64-apple-darwin` | AERA Accelerated | ✅ Build 85 package verified |
-| macOS Intel | `x86_64-apple-darwin` | AERA Standard / CPU fallback | ✅ Build 85 package verified |
-| Windows 10/11 x64 | `x86_64-pc-windows-msvc` | Standard / GPU-dependent | ✅ Build 85 package verified |
+| macOS Apple Silicon | `aarch64-apple-darwin` | AERA Accelerated | ✅ Build 105 package verified |
+| macOS Intel | `x86_64-apple-darwin` | AERA Standard / CPU fallback | ✅ Build 105 package verified |
+| Windows 10/11 x64 | `x86_64-pc-windows-msvc` | Standard / GPU-dependent | ✅ Build 105 package verified |
 
-Current binary source: `4c7ac0e1853519e7036665720aae24b75f6bfa93`.
+Current binary source: `ec861a0087c063aa217d3cadfe96653488178d27` (Build 105).
 
 Downloads are maintained in the repository README so users see the architecture choice and capability matrix before installing.
 
@@ -30,7 +30,7 @@ Downloads are maintained in the repository README so users see the architecture 
 | First-run Skill Manager | ✅ | ✅ | ✅ |
 | Wake-to-action pipeline | ◐ local services required | ◐ local services required | ◐ local services required |
 | WAVR first-party bridge | ✅ | ✅ | ✅ |
-| Visual/screen context | ⏳ | ⏳ | ⏳ |
+| Visual/screen context | ◐ one-shot foreground capture | ◐ one-shot foreground capture | ◐ one-shot foreground capture |
 | Signed production installer | ⏳ | ⏳ | ⏳ |
 | Automatic updater | ⏳ | ⏳ | ⏳ |
 

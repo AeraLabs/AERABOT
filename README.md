@@ -13,21 +13,23 @@ A model is never treated as proof that an action happened. Real computer actions
 
 ## Current downloads
 
-**AERA Orb 0.1.0 · Build 85 · source `4c7ac0e` · September 28, 2026**
+**AERA Orb 0.1.0 · Build 105 · source `ec861a0` · September 28, 2026**
 
-All three binaries below were produced from the **same source commit** and passed the current GitHub Actions package build. These are development builds; signing, macOS notarization, and the production updater are not finished yet.
+All three binaries below were produced from the **same current `main` source commit** and passed the complete GitHub Actions build for Build 105: frontend typecheck/tests/build, native Rust tests, and platform packaging. These are development builds; signing, macOS notarization, and the production updater are not finished yet.
 
-> **Source status:** the repository has advanced beyond Build 85. Current source includes explicit opt-in local visual context, deeper DAW integration work, persistent local action history, and CI hardening that are not all present in the binaries linked below. The download table is intentionally tied to the exact source commit that produced those artifacts.
+> **Build 105 status:** these downloads include the current persistent local action journal, runtime extraction/CI hardening, explicit opt-in one-shot foreground visual context, and the latest DAW integration work present in `main` at source `ec861a0`.
 
 | Platform | Architecture | Current build | Build verification |
 |---|---|---|---|
-| **macOS — Apple Silicon** | M1 / M2 / M3 / M4+ · `aarch64-apple-darwin` | **[Download Apple Silicon build](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760/artifacts/10996038510)** | ✅ CI typecheck/tests/build + native package |
-| **macOS — Intel** | Intel x86_64 · `x86_64-apple-darwin` | **[Download Intel Mac build](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760/artifacts/10996357517)** | ✅ CI typecheck/tests/build + native package |
-| **Windows 10/11** | x64 · `x86_64-pc-windows-msvc` | **[Download Windows x64 build](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760/artifacts/10997530068)** | ✅ CI typecheck/tests/build + native package |
+| **macOS — Apple Silicon** | M1 / M2 / M3 / M4+ · `aarch64-apple-darwin` | **[Download Apple Silicon build](https://github.com/CLIdaho/AERABOT/actions/runs/36509361361/artifacts/11008711999)** | ✅ Build 105 · `AERA Orb_0.1.0_aarch64.dmg` + `.app` |
+| **macOS — Intel** | Intel x86_64 · `x86_64-apple-darwin` | **[Download Intel Mac build](https://github.com/CLIdaho/AERABOT/actions/runs/36509361361/artifacts/11008169803)** | ✅ Build 105 · `AERA Orb_0.1.0_x64.dmg` + `.app` |
+| **Windows 10/11** | x64 · `x86_64-pc-windows-msvc` | **[Download Windows x64 build](https://github.com/CLIdaho/AERABOT/actions/runs/36509361361/artifacts/11008809307)** | ✅ Build 105 · `.msi` + setup `.exe` |
 
-**Full build run:** [AERA Desktop Builds #85](https://github.com/CLIdaho/AERABOT/actions/runs/36480700760)
+**Full build run:** [AERA Desktop Builds #105](https://github.com/CLIdaho/AERABOT/actions/runs/36509361361)
 
-> GitHub Actions artifacts are ZIP downloads and currently expire on **December 27, 2026**. For a private repository, GitHub sign-in with repository access is required. A future signed release channel will replace these temporary artifact links.
+> GitHub Actions artifacts are ZIP downloads and currently expire on **December 28, 2026**. For a private repository, GitHub sign-in with repository access is required. A future signed release channel will replace these temporary artifact links.
+> **Intel Mac note:** Build 105 is compiled and packaged on GitHub's dedicated `macos-15-intel` runner as a real `x86_64-apple-darwin` target. Use the x64 DMG above on Intel Macs. Because the app is still unsigned/unnotarized, macOS may block first launch; CI success confirms the Intel package was built and tested, but it is not a physical-hardware compatibility guarantee for every older Intel Mac.
+
 
 ### Platform status — what works today
 
@@ -52,7 +54,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 | Logic Pro Skill | ◐ | ◐ | — | macOS-only OSC/controller-assignment bridge; controller setup is not fully automatic yet |
 | Pro Tools Skill | ◐ | ◐ | ◐ | AERA PTSL wrapper/contract exists; the Avid SDK helper still needs completion/build integration |
 | **WAVR first-party Skill** | ✅ | ✅ | ✅ | Native AeraLabs bridge with verified project/transport/full-track state, pause/seek/tempo, track selection, mute/solo/arm, volume/pan, FX inspection and undo where prior state is captured |
-| Opt-in screen / visual context | ⏳ | ⏳ | ⏳ | Implemented in current source as explicit session-scoped one-shot foreground capture; not shipped in Build 85 binaries |
+| Opt-in screen / visual context | ◐ | ◐ | ◐ | Build 105 includes explicit session-scoped one-shot foreground capture; broader continuous/context-aware modes are not finished |
 | Signed installers | ⏳ | ⏳ | ⏳ | Current artifacts are development packages |
 | macOS notarization | ⏳ | ⏳ | — | Not finished |
 | Automatic updater | ⏳ | ⏳ | ⏳ | Architecture-aware production update channel not finished |
@@ -60,7 +62,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 
 ### Verification level
 
-The current build is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, and package successfully.
+Build 105 is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, and package successfully.
 
 It does **not** yet mean every build has completed a long-duration launch/audio/DAW test on physical hardware. In particular, **Intel Mac remains a mandatory target**, but the current README intentionally distinguishes successful Intel packaging from a real Intel-hardware soak test.
 
@@ -293,7 +295,7 @@ Destructive future operations must require confirmation. Reversible operations s
 These are still future work:
 
 - bundled/licensed wake-word model distribution
-- opt-in screen/application visual inspection
+- broader continuous/application visual-context modes beyond the current explicit one-shot foreground capture
 - automatic generation/building of Avid Pro Tools SDK helper artifacts
 - automatic Logic Controller Assignment provisioning
 - full capability parity across every third-party DAW
