@@ -1725,3 +1725,83 @@ button, input, select { font: inherit; }
   font-size: 6.3px;
   cursor: pointer;
 }
+
+
+.quick-actions button.selected {
+  border-color: color-mix(in srgb, var(--aera-secondary, #7ff0d2) 24%, transparent);
+  background: color-mix(in srgb, var(--aera-secondary, #7ff0d2) 6%, transparent);
+}
+
+.quick-subpanel {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 13px;
+  background: rgba(255,255,255,0.018);
+}
+
+.quick-subpanel label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 35px;
+}
+
+.quick-subpanel label > span {
+  display: grid;
+  gap: 1px;
+}
+
+.quick-subpanel b {
+  color: rgba(234,248,250,0.72);
+  font-size: 7.5px;
+  font-weight: 600;
+}
+
+.quick-subpanel small {
+  color: rgba(181,204,209,0.34);
+  font-size: 6.2px;
+}
+
+.quick-subpanel input[type="checkbox"] {
+  width: 28px;
+  height: 18px;
+  accent-color: rgb(120,231,207);
+}
+
+.quick-subpanel select {
+  height: 27px;
+  min-width: 112px;
+  padding: 0 7px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  color: rgba(237,249,251,0.74);
+  background: rgba(255,255,255,0.04);
+  font-size: 6.7px;
+}
+
+.behavior-pills {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.behavior-pills button {
+  height: 27px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 9px;
+  color: rgba(196,217,221,0.44);
+  background: rgba(255,255,255,0.02);
+  font-size: 6.4px;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.behavior-pills button.active {
+  color: rgba(226,252,246,0.8);
+  border-color: color-mix(in srgb, var(--aera-secondary, #7ff0d2) 20%, transparent);
+  background: color-mix(in srgb, var(--aera-secondary, #7ff0d2) 6%, transparent);
+}
