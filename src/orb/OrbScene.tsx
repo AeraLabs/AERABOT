@@ -16,6 +16,7 @@ interface OrbSceneProps {
   quality?: "auto" | "ultra" | "high" | "balanced" | "efficiency";
   palette?: OrbPalette;
   presence?: PresenceStyle;
+  desktopActivityKey?: string;
 }
 
 const vertexShader = `
@@ -73,14 +74,17 @@ export function OrbScene({
   quality = "auto",
   palette = DEFAULT_ORB_PALETTE,
   presence = "balanced",
+  desktopActivityKey = "",
 }: OrbSceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state);
   const paletteRef = useRef(palette);
   const presenceRef = useRef(presence);
+  const desktopActivityRef = useRef(desktopActivityKey);
   stateRef.current = state;
   paletteRef.current = palette;
   presenceRef.current = presence;
+  desktopActivityRef.current = desktopActivityKey;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -290,7 +294,9 @@ export function OrbScene({
     let currentGlow = 0.7;
     let currentOpacity = 0.8;
     let transitionPulse = 0;
+    let attentionPulse = 0;
     let previousState = stateRef.current;
+    let previousDesktopActivity = desktopActivityRef.current;
     let last = performance.now();
 
     const resize = () => {
@@ -338,7 +344,15 @@ export function OrbScene({
         );
         previousState = currentState;
       }
+
+      if (desktopActivityRef.current !== previousDesktopActivity) {
+        previousDesktopActivity = desktopActivityRef.current;
+        attentionPulse =
+          currentState === "SLEEPING" || currentState === "DND" ? 0 : 1;
+      }
+
       transitionPulse *= Math.exp(-dt * 3.6);
+      attentionPulse *= Math.exp(-dt * 2.35);
 
       targetA.set(paletteRef.current.primary);
       targetB.set(paletteRef.current.secondary);
@@ -377,8 +391,19 @@ export function OrbScene({
       const expressivePulse =
         stateBreath * presenceProfile.motion;
 
+      const ambientCuriosity =
+        currentState === "AMBIENT" || currentState === "IDLE"
+          ? (Math.sin(now / 1050) + Math.sin(now / 1730)) *
+            0.0045 *
+            presenceProfile.motion
+          : 0;
+
       group.scale.setScalar(
-        currentScale + transitionPulse * 0.055 + expressivePulse,
+        currentScale +
+          transitionPulse * 0.055 +
+          attentionPulse * 0.022 +
+          expressivePulse +
+          ambientCuriosity,
       );
 
       energyMaterial.uniforms.uTime.value =
@@ -390,7 +415,8 @@ export function OrbScene({
       energyMaterial.uniforms.uGlow.value =
         currentGlow * presenceProfile.bloom;
       energyMaterial.uniforms.uOpacity.value = currentOpacity;
-      energyMaterial.uniforms.uPulse.value = transitionPulse;
+      energyMaterial.uniforms.uPulse.value =
+        transitionPulse + attentionPulse * 0.34;
 
       shellMaterial.opacity =
         0.46 + currentOpacity * 0.31 + transitionPulse * 0.045;
@@ -433,6 +459,7 @@ export function OrbScene({
             0.28 *
             presenceProfile.bloom *
             choreography.halo +
+            attentionPulse * 0.12 +
             ambientHalo,
         );
       const haloScale =
@@ -491,7 +518,11 @@ export function OrbScene({
           v.movementAmplitude *
           motion *
           choreography.drift;
-        group.position.y = breath;
+        const idleLift =
+          currentState === "AMBIENT" || currentState === "IDLE"
+            ? Math.sin(now / 720) * 0.006 * presenceProfile.hover
+            : 0;
+        group.position.y = breath + idleLift - attentionPulse * 0.018;
         const errorJitter =
           currentState === "ERROR"
             ? Math.sin(now / 21) * 0.006 * motion
@@ -502,6 +533,8 @@ export function OrbScene({
             0.32 *
             presenceProfile.motion *
             choreography.drift +
+          Math.sin(now / 1360) * 0.004 * presenceProfile.hover +
+          attentionPulse * 0.012 +
           errorJitter;
       } else {
         group.rotation.set(0, 0, 0);
