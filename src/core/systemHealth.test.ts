@@ -12,7 +12,7 @@ const foreground = {
   maximized: false,
   fullscreen: false,
   coordinateSpace: "logical" as const,
-  geometrySource: "none",
+  geometrySource: "none" as const,
   permissionRequired: false,
   permissionGranted: true,
   isAera: false,
