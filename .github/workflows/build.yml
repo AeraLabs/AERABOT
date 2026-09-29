@@ -47,6 +47,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - run: npm install
+      - name: Build frontend for Tauri context
+        run: npm run build
       - name: Verify native architecture
         run: |
           uname -m
@@ -72,6 +74,8 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
       - run: npm install
+      - name: Build frontend for Tauri context
+        run: npm run build
       - name: Native Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc
       - run: npm run tauri build -- --target x86_64-pc-windows-msvc
