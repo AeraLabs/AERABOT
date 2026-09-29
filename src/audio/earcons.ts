@@ -78,6 +78,9 @@ export async function playEarcon(
   const pattern = PATTERNS[state];
   if (!enabled || !pattern) return;
   const ctx = audioContext();
+  if (ctx.state === "suspended") {
+    await ctx.resume().catch(() => undefined);
+  }
   if (ctx.state !== "running") return;
 
   const start = ctx.currentTime + 0.004;
