@@ -10,7 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "tauri": "tauri",
-    "check:local": "node scripts/check-local-stack.mjs"
+    "check:local": "node scripts/check-local-stack.mjs",
+    "icons": "tauri icon src-tauri/icons/aera-icon.svg -o src-tauri/icons",
+    "package:desktop": "npm run icons && tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
