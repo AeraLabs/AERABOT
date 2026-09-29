@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { AeraQuickMenu } from "./components/AeraQuickMenu";
 import { SkillManager } from "./components/SkillManager";
 import {
   type CSSProperties,
@@ -35,6 +36,11 @@ import {
   type AppearanceProfile,
 } from "./core/appearanceProfiles";
 import { answerActionHistoryQuery } from "./core/actionHistoryQueries";
+import {
+  acknowledgementFor,
+  confusionFor,
+  vibeSystemInstruction,
+} from "./core/personality";
 import { answerLocalContextQuery } from "./core/contextQueries";
 import { parseDirectIntent } from "./core/directIntent";
 import { parsePreferenceIntent } from "./core/preferenceIntent";
@@ -64,6 +70,7 @@ import {
   listMonitors,
   requestForegroundPermission,
   resizeOrbHost,
+  quitAera,
   type ForegroundWindowSnapshot,
   type MonitorSnapshot,
   type SystemProfile,
@@ -139,8 +146,12 @@ export function App() {
   const [message, setMessage] = useState("AERA ambient");
   const [profile, setProfile] = useState<SystemProfile | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [skillManagerOpen, setSkillManagerOpen] = useState(
     () => !loadPreferences().onboardingComplete,
+  );
+  const [skillManagerMode, setSkillManagerMode] = useState<"wizard" | "advanced">(
+    () => (loadPreferences().onboardingComplete ? "advanced" : "wizard"),
   );
   const [command, setCommand] = useState("");
   const [recording, setRecording] = useState(false);
@@ -217,7 +228,9 @@ export function App() {
       if (event.type === "state") {
         setState(event.state);
         setMessage("AERA " + event.state.toLowerCase());
-        playEarcon(event.state, !preferences.muted).catch(() => undefined);
+        playEarcon(event.state, !preferences.muted, preferences.vibe).catch(
+          () => undefined,
+        );
       }
       if (event.type === "message") setMessage(event.message);
     });
@@ -226,16 +239,17 @@ export function App() {
       unsubscribe();
       mq.removeEventListener?.("change", onMotion);
     };
-  }, [runtime, preferences.muted]);
+  }, [runtime, preferences.muted, preferences.vibe]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
 
     let unlisten: (() => void) | undefined;
     listen("aera-summon", () => {
+      setAdvancedOpen(false);
       setPanelOpen(true);
       runtime.setState("AWAKE");
-      runtime.notify("Summoned");
+      runtime.notify(acknowledgementFor(preferences.vibe, "summon"));
     })
       .then((cleanup) => {
         unlisten = cleanup;
@@ -243,7 +257,7 @@ export function App() {
       .catch(() => undefined);
 
     return () => unlisten?.();
-  }, [runtime]);
+  }, [runtime, preferences.vibe]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -472,11 +486,13 @@ export function App() {
     const diameter = skillManagerOpen
       ? 720
       : panelOpen
-        ? 552
+        ? advancedOpen
+          ? 552
+          : 438
         : (visualFor(state).nativeDiameter + 64) *
           ORB_SIZE_MULTIPLIERS[preferences.orbSize];
     resizeOrbHost(diameter).catch(() => undefined);
-  }, [panelOpen, preferences.orbSize, skillManagerOpen, state]);
+  }, [advancedOpen, panelOpen, preferences.orbSize, skillManagerOpen, state]);
 
   const patchPreferences = (patch: Partial<AeraPreferences>) => {
     setPreferences((current) => ({ ...current, ...patch }));
@@ -960,8 +976,9 @@ export function App() {
     if (!provider || !model) {
       runtime.setState("QUESTION");
       const reply =
-        "No local language model is available yet. Start Ollama or a llama.cpp server, then press Refresh. AERA will use the models already installed there.";
-      appendAssistant(reply);
+        confusionFor(preferences.vibe, "brain") +
+        " Open AI Connections and I’ll show you what’s missing.";
+      appendAssistant(reply, "AERA brain · connection needed");
       runtime.notify(reply);
       return;
     }
@@ -979,6 +996,10 @@ export function App() {
           provider: provider.id,
           model,
           messages: [
+            {
+              role: "system" as const,
+              content: vibeSystemInstruction(preferences.vibe),
+            },
             ...history,
             ...(foregroundDawModelContext(foreground)
               ? [
@@ -1116,10 +1137,12 @@ export function App() {
       await finishReply(reply, finalState);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      const reply = "Local AI error: " + detail;
+      const reply =
+        confusionFor(preferences.vibe, "disconnect") +
+        " I lost the local AI connection, so I’m checking it again.";
       runtime.setState("ERROR");
       runtime.notify(reply);
-      appendAssistant(reply);
+      appendAssistant(reply, "AERA brain · " + detail);
       refreshLocalServices().catch(() => undefined);
     }
   };
@@ -1199,6 +1222,12 @@ export function App() {
   };
 
   const toggleVoice = async () => {
+    if (!preferences.micEnabled) {
+      runtime.setState("QUESTION");
+      runtime.notify("My microphone is off. Turn it back on in Voice & Sound.");
+      return;
+    }
+
     if (recording && recorderRef.current) {
       const recorder = recorderRef.current;
       recorderRef.current = null;
@@ -1248,6 +1277,7 @@ export function App() {
         }}
         onContextMenu={(event) => {
           event.preventDefault();
+          setAdvancedOpen(false);
           setPanelOpen((value) => !value);
         }}
       >
@@ -1263,6 +1293,8 @@ export function App() {
 
       {skillManagerOpen && (
         <SkillManager
+          mode={skillManagerMode}
+          preferences={preferences}
           providers={providers}
           skills={runtime.skills.list()}
           speech={speechStatus}
@@ -1282,6 +1314,7 @@ export function App() {
           }
           busy={serviceBusy}
           onRefresh={() => refreshLocalServices()}
+          onPreferenceChange={patchPreferences}
           onWindowPermission={enableWindowAwareness}
           onVisualContextChange={setVisualContextPreference}
           onVisualModelChange={(model) => patchPreferences({ visualModel: model })}
@@ -1294,14 +1327,58 @@ export function App() {
           onComplete={() => {
             patchPreferences({ onboardingComplete: true });
             setSkillManagerOpen(false);
+            setAdvancedOpen(false);
             setPanelOpen(true);
+            runtime.setState("AWAKE");
+            runtime.notify("AERA is ready.");
           }}
           onClose={() => setSkillManagerOpen(false)}
         />
       )}
 
-      {panelOpen && !skillManagerOpen && (
-        <section className="control-panel" aria-label="AERA controls">
+      {panelOpen && !skillManagerOpen && !advancedOpen && (
+        <AeraQuickMenu
+          state={state}
+          message={message}
+          command={command}
+          recording={recording}
+          brainReady={Boolean(activeProvider && activeModel)}
+          voiceReady={Boolean(speechStatus?.piperAvailable)}
+          studioName={foregroundDaw(foreground)?.name ?? null}
+          preferences={preferences}
+          onCommandChange={setCommand}
+          onSubmit={submitCommand}
+          onVoice={toggleVoice}
+          onMove={() => {
+            runtime.setState("AWAKE");
+            runtime.notify("Hold Alt and drag me anywhere you want.");
+          }}
+          onStudio={() => {
+            const next = state === "STUDIO" ? "AMBIENT" : "STUDIO";
+            runtime.setState(next);
+            runtime.notify(next === "STUDIO" ? "Studio Mode. I’ll stay close to the work." : "Back to ambient.");
+          }}
+          onVoiceSound={() => {
+            patchPreferences({ muted: !preferences.muted });
+            runtime.notify(preferences.muted ? "Sounds on." : "Sounds tucked away.");
+          }}
+          onAiConnections={() => {
+            setSkillManagerMode("advanced");
+            setSkillManagerOpen(true);
+          }}
+          onDesktopBehavior={() => {
+            const enabled = !preferences.spatialAwareness;
+            patchPreferences({ spatialAwareness: enabled });
+            runtime.notify(enabled ? "Desktop movement is on." : "I’ll stay where you put me.");
+          }}
+          onAdvanced={() => setAdvancedOpen(true)}
+          onClose={() => setPanelOpen(false)}
+          onQuit={() => void quitAera()}
+        />
+      )}
+
+      {panelOpen && !skillManagerOpen && advancedOpen && (
+        <section className="control-panel" aria-label="AERA advanced controls">
           <header className="panel-header">
             <div className="aera-wordmark">
               <strong>AERA</strong>
@@ -1483,7 +1560,10 @@ export function App() {
               <button
                 type="button"
                 className="setup-button"
-                onClick={() => setSkillManagerOpen(true)}
+                onClick={() => {
+                  setSkillManagerMode("advanced");
+                  setSkillManagerOpen(true);
+                }}
               >
                 SETUP
               </button>
