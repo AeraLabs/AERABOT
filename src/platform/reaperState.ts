@@ -192,3 +192,52 @@ export async function runReaperTrackCommand(
     value,
   });
 }
+
+
+export type ReaperTrackValueOperation = "volume" | "pan";
+
+export interface ReaperTrackValueCommandOutcome {
+  id: string;
+  operation: ReaperTrackValueOperation;
+  trackGuid: string;
+  requestedValue: number;
+  before: number;
+  after: number;
+}
+
+export interface ReaperTrackSelectCommandOutcome {
+  id: string;
+  trackGuid: string;
+  previousTrackGuid: string | null;
+  selectedTrackGuid: string;
+}
+
+export async function runReaperTrackValueCommand(
+  id: string,
+  trackGuid: string,
+  operation: ReaperTrackValueOperation,
+  value: number,
+): Promise<ReaperTrackValueCommandOutcome> {
+  if (!isTauriRuntime()) {
+    throw new Error("REAPER numeric track control requires the desktop runtime.");
+  }
+  return invoke<ReaperTrackValueCommandOutcome>("reaper_track_value_command", {
+    id,
+    trackGuid,
+    operation,
+    value,
+  });
+}
+
+export async function runReaperTrackSelectCommand(
+  id: string,
+  trackGuid: string,
+): Promise<ReaperTrackSelectCommandOutcome> {
+  if (!isTauriRuntime()) {
+    throw new Error("REAPER track selection requires the desktop runtime.");
+  }
+  return invoke<ReaperTrackSelectCommandOutcome>("reaper_track_select_command", {
+    id,
+    trackGuid,
+  });
+}

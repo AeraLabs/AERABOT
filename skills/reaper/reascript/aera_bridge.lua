@@ -56,14 +56,21 @@ local function clean_result_text(value)
   return tostring(value or ""):gsub("[\t\r\n]", " ")
 end
 
+local function result_value(value)
+  if type(value) == "boolean" then
+    return value and "1" or "0"
+  end
+  return clean_result_text(value)
+end
+
 local function write_command_result(id, ok, before, after, message)
   local file = io.open(result_temp_path, "wb")
   if not file then return end
   file:write(table.concat({
     clean_result_text(id),
     ok and "1" or "0",
-    before and "1" or "0",
-    after and "1" or "0",
+    result_value(before),
+    result_value(after),
     clean_result_text(message)
   }, "\t") .. "\n")
   file:flush()
@@ -114,40 +121,100 @@ local function process_command(project)
   os.remove(command_path)
 
   local id, operation, guid, raw_value =
-    payload:match("^([^\t\r\n]+)\t([^\t\r\n]+)\t([^\t\r\n]+)\t([01])")
+    payload:match("^([^\t\r\n]+)\t([^\t\r\n]+)\t([^\t\r\n]+)\t([^\t\r\n]+)")
 
   if not id then
     return
   end
 
-  if operation ~= "mute" and operation ~= "solo" and operation ~= "arm" then
-    write_command_result(id, false, false, false, "Unsupported REAPER track operation.")
+  if operation ~= "mute" and
+     operation ~= "solo" and
+     operation ~= "arm" and
+     operation ~= "volume" and
+     operation ~= "pan" and
+     operation ~= "select" then
+    write_command_result(id, false, "", "", "Unsupported REAPER track operation.")
     return
   end
 
   local track = find_track_by_guid(project, guid)
   if not track then
-    write_command_result(id, false, false, false, "The target REAPER track no longer exists.")
+    write_command_result(id, false, "", "", "The target REAPER track no longer exists.")
     return
   end
 
-  local before = track_bool_value(track, operation)
-  local requested = raw_value == "1"
-  local ok = apply_track_operation(track, operation, requested)
-  local after = track_bool_value(track, operation)
+  if operation == "mute" or operation == "solo" or operation == "arm" then
+    local before = track_bool_value(track, operation)
+    local requested = raw_value == "1"
+    local ok = apply_track_operation(track, operation, requested)
+    local after = track_bool_value(track, operation)
 
-  if ok and after == requested then
-    last_change_count = -1
-    reaper.UpdateArrange()
-    write_command_result(id, true, before, after, "")
-  else
-    write_command_result(
-      id,
-      false,
-      before,
-      after,
-      "REAPER did not apply the requested track state."
-    )
+    if ok and after == requested then
+      last_change_count = -1
+      reaper.UpdateArrange()
+      write_command_result(id, true, before, after, "")
+    else
+      write_command_result(
+        id,
+        false,
+        before,
+        after,
+        "REAPER did not apply the requested track state."
+      )
+    end
+    return
+  end
+
+  if operation == "volume" or operation == "pan" then
+    local requested = tonumber(raw_value)
+    if not requested then
+      write_command_result(id, false, "", "", "Invalid numeric REAPER track value.")
+      return
+    end
+    if operation == "volume" and (requested < 0 or requested > 1) then
+      write_command_result(id, false, "", "", "REAPER volume must be between 0 and 1.")
+      return
+    end
+    if operation == "pan" and (requested < -1 or requested > 1) then
+      write_command_result(id, false, "", "", "REAPER pan must be between -1 and 1.")
+      return
+    end
+
+    local parameter = operation == "volume" and "D_VOL" or "D_PAN"
+    local before = reaper.GetMediaTrackInfo_Value(track, parameter)
+    local ok = reaper.SetMediaTrackInfo_Value(track, parameter, requested)
+    local after = reaper.GetMediaTrackInfo_Value(track, parameter)
+
+    if ok and math.abs(after - requested) <= 0.0001 then
+      last_change_count = -1
+      reaper.UpdateArrange()
+      write_command_result(id, true, before, after, "")
+    else
+      write_command_result(
+        id,
+        false,
+        before,
+        after,
+        "REAPER did not apply the requested numeric track value."
+      )
+    end
+    return
+  end
+
+  if operation == "select" then
+    local selected_before = reaper.GetSelectedTrack(project, 0)
+    local before_guid = selected_before and (reaper.GetTrackGUID(selected_before) or "") or ""
+    reaper.SetOnlyTrackSelected(track)
+    local selected_after = reaper.GetSelectedTrack(project, 0)
+    local after_guid = selected_after and (reaper.GetTrackGUID(selected_after) or "") or ""
+
+    if after_guid == guid then
+      last_change_count = -1
+      reaper.UpdateArrange()
+      write_command_result(id, true, before_guid, after_guid, "")
+    else
+      write_command_result(id, false, before_guid, after_guid, "REAPER did not select the requested track.")
+    end
   end
 end
 

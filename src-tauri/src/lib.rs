@@ -221,6 +221,32 @@ async fn reaper_track_command(
 }
 
 #[tauri::command]
+async fn reaper_track_value_command(
+    id: String,
+    track_guid: String,
+    operation: String,
+    value: f64,
+) -> Result<reaper_state::ReaperTrackValueCommandOutcome, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        reaper_state::send_track_value_command(id, track_guid, operation, value)
+    })
+    .await
+    .map_err(|error| format!("REAPER numeric track command worker failed: {error}"))?
+}
+
+#[tauri::command]
+async fn reaper_track_select_command(
+    id: String,
+    track_guid: String,
+) -> Result<reaper_state::ReaperTrackSelectCommandOutcome, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        reaper_state::send_track_select_command(id, track_guid)
+    })
+    .await
+    .map_err(|error| format!("REAPER track selection worker failed: {error}"))?
+}
+
+#[tauri::command]
 fn foreground_window_snapshot() -> foreground::ForegroundWindowSnapshot {
     foreground::snapshot()
 }
@@ -378,6 +404,8 @@ pub fn run() {
             reaper_transport,
             reaper_state_snapshot,
             reaper_track_command,
+            reaper_track_value_command,
+            reaper_track_select_command,
             install_reaper_bridge,
             fl_studio_bridge_status,
             daw_bridge_status,

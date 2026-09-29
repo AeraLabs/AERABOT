@@ -81,6 +81,26 @@ pub struct ReaperTrackCommandOutcome {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReaperTrackValueCommandOutcome {
+    pub id: String,
+    pub operation: String,
+    pub track_guid: String,
+    pub requested_value: f64,
+    pub before: f64,
+    pub after: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReaperTrackSelectCommandOutcome {
+    pub id: String,
+    pub track_guid: String,
+    pub previous_track_guid: Option<String>,
+    pub selected_track_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReaperBridgeInstallResult {
     pub installed: bool,
     pub already_current: bool,
@@ -326,17 +346,22 @@ fn live_bridge_directory() -> Result<PathBuf, String> {
         .ok_or_else(|| "The REAPER live bridge state path has no parent directory.".into())
 }
 
-fn parse_result_line(line: &str) -> Result<(String, bool, bool, bool, String), String> {
+fn parse_result_line_raw(line: &str) -> Result<(String, bool, String, String, String), String> {
     let mut parts = line.trim_end_matches(['\r', '\n']).splitn(5, '\t');
     let id = parts.next().unwrap_or_default().to_string();
     let ok = parts.next().unwrap_or("0") == "1";
-    let before = parts.next().unwrap_or("0") == "1";
-    let after = parts.next().unwrap_or("0") == "1";
+    let before = parts.next().unwrap_or_default().to_string();
+    let after = parts.next().unwrap_or_default().to_string();
     let error = parts.next().unwrap_or_default().to_string();
     if id.is_empty() {
         return Err("REAPER returned an invalid command result.".into());
     }
     Ok((id, ok, before, after, error))
+}
+
+fn parse_result_line(line: &str) -> Result<(String, bool, bool, bool, String), String> {
+    let (id, ok, before, after, error) = parse_result_line_raw(line)?;
+    Ok((id, ok, before == "1", after == "1", error))
 }
 
 pub fn send_track_command(
@@ -410,4 +435,122 @@ pub fn send_track_command(
     }
 
     Err("REAPER did not acknowledge the track command before timeout.".into())
+}
+
+
+fn send_raw_track_command(
+    id: &str,
+    track_guid: &str,
+    operation: &str,
+    raw_value: &str,
+) -> Result<(bool, String, String, String), String> {
+    if id.trim().is_empty() || id.contains(['\t', '\n', '\r']) {
+        return Err("Invalid REAPER command id.".into());
+    }
+    if track_guid.trim().is_empty() || track_guid.contains(['\t', '\n', '\r']) {
+        return Err("Invalid REAPER track GUID.".into());
+    }
+    if raw_value.contains(['\t', '\n', '\r']) {
+        return Err("Invalid REAPER command value.".into());
+    }
+
+    let directory = live_bridge_directory()?;
+    let command_path = directory.join(COMMAND_FILE);
+    let result_path = directory.join(RESULT_FILE);
+    let temp_path = directory.join("aera-command.tmp");
+
+    if command_path.exists() {
+        let pending_age = age(&command_path).unwrap_or(Duration::ZERO);
+        if pending_age < Duration::from_secs(3) {
+            return Err("REAPER bridge is busy with another command.".into());
+        }
+        let _ = fs::remove_file(&command_path);
+    }
+
+    let _ = fs::remove_file(&result_path);
+    let payload = format!("{id}\t{operation}\t{track_guid}\t{raw_value}\n");
+    fs::write(&temp_path, payload.as_bytes())
+        .map_err(|error| format!("Could not stage REAPER command: {error}"))?;
+    fs::rename(&temp_path, &command_path)
+        .map_err(|error| format!("Could not publish REAPER command: {error}"))?;
+
+    let deadline = Instant::now() + Duration::from_millis(1600);
+    while Instant::now() <= deadline {
+        if let Ok(text) = fs::read_to_string(&result_path) {
+            if let Ok((result_id, ok, before, after, error)) = parse_result_line_raw(&text) {
+                if result_id == id {
+                    let _ = fs::remove_file(&result_path);
+                    return Ok((ok, before, after, error));
+                }
+            }
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+
+    Err("REAPER did not acknowledge the track command before timeout.".into())
+}
+
+pub fn send_track_value_command(
+    id: String,
+    track_guid: String,
+    operation: String,
+    value: f64,
+) -> Result<ReaperTrackValueCommandOutcome, String> {
+    if !matches!(operation.as_str(), "volume" | "pan") {
+        return Err("Unsupported REAPER numeric track operation.".into());
+    }
+    if operation == "volume" && !(0.0..=1.0).contains(&value) {
+        return Err("REAPER volume must be between 0 and 1.".into());
+    }
+    if operation == "pan" && !(-1.0..=1.0).contains(&value) {
+        return Err("REAPER pan must be between -1 and 1.".into());
+    }
+
+    let (ok, before_raw, after_raw, error) =
+        send_raw_track_command(&id, &track_guid, &operation, &value.to_string())?;
+    if !ok {
+        return Err(if error.is_empty() {
+            "REAPER rejected the numeric track command.".into()
+        } else {
+            error
+        });
+    }
+
+    let before = before_raw
+        .parse::<f64>()
+        .map_err(|_| "REAPER returned an invalid prior numeric value.".to_string())?;
+    let after = after_raw
+        .parse::<f64>()
+        .map_err(|_| "REAPER returned an invalid resulting numeric value.".to_string())?;
+
+    Ok(ReaperTrackValueCommandOutcome {
+        id,
+        operation,
+        track_guid,
+        requested_value: value,
+        before,
+        after,
+    })
+}
+
+pub fn send_track_select_command(
+    id: String,
+    track_guid: String,
+) -> Result<ReaperTrackSelectCommandOutcome, String> {
+    let (ok, before, after, error) =
+        send_raw_track_command(&id, &track_guid, "select", "1")?;
+    if !ok {
+        return Err(if error.is_empty() {
+            "REAPER rejected the track selection command.".into()
+        } else {
+            error
+        });
+    }
+
+    Ok(ReaperTrackSelectCommandOutcome {
+        id,
+        track_guid,
+        previous_track_guid: if before.is_empty() { None } else { Some(before) },
+        selected_track_guid: after,
+    })
 }

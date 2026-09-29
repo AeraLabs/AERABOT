@@ -1,16 +1,21 @@
 {
   "id": "reaper",
   "name": "REAPER",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "AeraLabs",
   "capabilities": [
     "software.open",
     "transport.play",
     "transport.stop",
     "transport.pause",
+    "track.select",
     "track.mute.set",
     "track.solo.set",
-    "track.arm.set"
+    "track.arm.set",
+    "track.volume.set",
+    "track.pan.set",
+    "project.inspect",
+    "track.fx.inspect"
   ],
   "platforms": [
     "macos-arm64",
@@ -28,19 +33,27 @@
     "launch": true,
     "transport": true,
     "trackControl": true,
+    "trackSelection": true,
+    "mixerControl": true,
     "reversibleTrackControl": true,
     "projectInspection": true,
     "liveProjectState": true,
-    "trackInspection": true
+    "trackInspection": true,
+    "pluginInspection": true
   },
   "permissions": {
     "software.open": "safe",
     "transport.play": "safe",
     "transport.stop": "safe",
     "transport.pause": "safe",
+    "track.select": "reversible",
     "track.mute.set": "reversible",
     "track.solo.set": "reversible",
-    "track.arm.set": "reversible"
+    "track.arm.set": "reversible",
+    "track.volume.set": "reversible",
+    "track.pan.set": "reversible",
+    "project.inspect": "safe",
+    "track.fx.inspect": "safe"
   },
-  "notes": "REAPER launch is native and whitelisted. Transport uses loopback OSC with live verification when the ReaScript bridge is running. The ReaScript publishes verified project/track state and accepts allowlisted reversible mute/solo/arm operations addressed by captured track GUID."
+  "notes": "REAPER uses loopback OSC for transport plus a local ReaScript bridge for verified project/track state. Track selection, mute/solo/arm, volume and pan are GUID-addressed, verified after mutation, and journal-reversible. Project and selected-track FX inspection are read-only."
 }
