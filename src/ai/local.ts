@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "../platform/bridge";
 
-export type LocalProviderId = "ollama" | "llamacpp" | "openai_local";
+export type LocalProviderId = "aera" | "ollama" | "llamacpp" | "openai_local";
 export type ChatRole = "system" | "user" | "assistant";
 
 export interface LocalProviderStatus {
@@ -51,6 +51,11 @@ export function resolveProvider(
   if (preference !== "auto") {
     return providers.find((provider) => provider.id === preference && provider.available) ?? null;
   }
+
+  const builtIn = providers.find(
+    (provider) => provider.id === "aera" && provider.available && provider.models.length > 0,
+  );
+  if (builtIn) return builtIn;
 
   const withModels = providers.find((provider) => provider.available && provider.models.length > 0);
   return withModels ?? providers.find((provider) => provider.available) ?? null;
