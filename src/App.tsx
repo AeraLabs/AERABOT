@@ -1835,6 +1835,7 @@ export function App() {
                   })
                 }
               >
+                <option value="aera">AERA Brain · built in</option>
                 <option value="auto">Auto detect</option>
                 <option value="ollama">Ollama</option>
                 <option value="llamacpp">llama.cpp</option>
