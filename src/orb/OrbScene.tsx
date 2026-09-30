@@ -7,6 +7,18 @@ import type {
 import { DEFAULT_ORB_PALETTE } from "../core/preferences";
 import { choreographyFor } from "./choreography";
 import { PRESENCE_PROFILES } from "./palette";
+import {
+  deterministicUnit,
+  LIVING_QUALITY,
+  livingAtmosphereFragmentShader,
+  livingAtmosphereVertexShader,
+  livingEnergyFragmentShader,
+  livingEnergyVertexShader,
+  livingGlassFragmentShader,
+  livingGlassVertexShader,
+  makeLivingGlowTexture,
+  resolveLivingQuality,
+} from "./livingVisuals";
 import type { OrbState } from "./state";
 import { visualFor } from "./state";
 
@@ -90,26 +102,26 @@ export function OrbScene({
     const mount = mountRef.current;
     if (!mount) return;
 
+    const effectiveQuality = resolveLivingQuality(quality);
+    const qualityProfile = LIVING_QUALITY[effectiveQuality];
+
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-    camera.position.set(0, 0, 5.2);
+    const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 100);
+    camera.position.set(0, 0, 5.35);
 
     const renderer = new THREE.WebGLRenderer({
       alpha: true,
-      antialias: quality !== "efficiency",
+      antialias: effectiveQuality !== "efficiency",
       powerPreference:
-        quality === "efficiency" ? "low-power" : "high-performance",
+        effectiveQuality === "efficiency" ? "low-power" : "high-performance",
       premultipliedAlpha: true,
     });
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.22;
     renderer.setPixelRatio(
-      Math.min(
-        window.devicePixelRatio,
-        quality === "efficiency" ? 1.25 : 2,
-      ),
+      Math.min(window.devicePixelRatio || 1, qualityProfile.pixelRatio),
     );
     mount.appendChild(renderer.domElement);
 
