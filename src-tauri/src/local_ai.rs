@@ -1,3 +1,4 @@
+use crate::brain;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
@@ -220,15 +221,24 @@ async fn chat_openai_compatible(
     request: LocalChatRequest,
     started: Instant,
 ) -> Result<LocalChatResponse, String> {
+    let mut payload = json!({
+        "model": request.model,
+        "messages": request.messages,
+        "temperature": if provider == "aera" { 0.15 } else { 0.25 },
+        "max_tokens": if provider == "aera" { 500 } else { 700 },
+        "stream": false
+    });
+
+    // Every current text-model call flows through AERA's semantic planner, so
+    // the built-in tiny model gets a constrained JSON response surface. The
+    // Skill/runtime boundary still validates every proposed action separately.
+    if provider == "aera" {
+        payload["response_format"] = json!({ "type": "json_object" });
+    }
+
     let response = http
         .post(format!("{base}/chat/completions"))
-        .json(&json!({
-            "model": request.model,
-            "messages": request.messages,
-            "temperature": 0.25,
-            "max_tokens": 700,
-            "stream": false
-        }))
+        .json(&payload)
         .send()
         .await
         .map_err(|error| format!("{provider} is unavailable: {error}"))?;
@@ -274,6 +284,24 @@ async fn chat_openai_compatible(
 
 pub async fn probe() -> Result<Vec<LocalProviderStatus>, String> {
     let http = client(5)?;
+
+    let aera = match brain::endpoint() {
+        Some(base) => {
+            probe_openai_compatible(&http, "aera", "AERA Brain", &format!("{base}/v1")).await
+        }
+        None => {
+            let status = brain::status();
+            LocalProviderStatus {
+                id: "aera".into(),
+                name: "AERA Brain".into(),
+                endpoint: "managed by AERA".into(),
+                available: false,
+                models: vec![],
+                error: status.error.or_else(|| Some(status.message)),
+            }
+        }
+    };
+
     let ollama = probe_ollama(&http).await;
     let llama_cpp = probe_openai_compatible(&http, "llamacpp", "llama.cpp", &format!("{LLAMA_CPP_BASE}/v1")).await;
 
@@ -297,7 +325,7 @@ pub async fn probe() -> Result<Vec<LocalProviderStatus>, String> {
         },
     };
 
-    Ok(vec![ollama, llama_cpp, openai_local])
+    Ok(vec![aera, ollama, llama_cpp, openai_local])
 }
 
 pub async fn vision(request: LocalVisionRequest) -> Result<LocalChatResponse, String> {
@@ -379,6 +407,18 @@ pub async fn chat(request: LocalChatRequest) -> Result<LocalChatResponse, String
     let started = Instant::now();
 
     match request.provider.as_str() {
+        "aera" => {
+            let base = brain::endpoint()
+                .ok_or_else(|| "AERA Brain is not ready yet.".to_string())?;
+            chat_openai_compatible(
+                &http,
+                "aera",
+                &format!("{base}/v1"),
+                request,
+                started,
+            )
+            .await
+        }
         "ollama" => {
             let response = http
                 .post(format!("{OLLAMA_BASE}/api/chat"))
