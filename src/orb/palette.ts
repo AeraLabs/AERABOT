@@ -19,16 +19,16 @@ export const PRESENCE_PROFILES: Record<PresenceStyle, PresenceProfile> = {
   balanced: {
     motion: 1,
     hover: 1,
-    bloom: 1,
+    bloom: 1.12,
     orbit: 1,
-    particles: 1,
+    particles: 1.08,
   },
   expressive: {
     motion: 1.42,
     hover: 1.35,
-    bloom: 1.38,
+    bloom: 1.5,
     orbit: 1.3,
-    particles: 1.25,
+    particles: 1.32,
   },
 };
 
