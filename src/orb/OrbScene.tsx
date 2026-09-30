@@ -910,18 +910,43 @@ export function OrbScene({
       mount.removeEventListener("pointermove", onPointer);
       mount.removeEventListener("pointerleave", onLeave);
       renderer.dispose();
+
       shell.geometry.dispose();
       shellMaterial.dispose();
+
+      glassShell.geometry.dispose();
+      glassMaterial.dispose();
+
+      atmosphere.geometry.dispose();
+      atmosphereMaterial.dispose();
+
       energy.geometry.dispose();
       energyMaterial.dispose();
+
+      veil.geometry.dispose();
+      veilMaterial.dispose();
+
       core.geometry.dispose();
       coreMaterial.dispose();
+      coreGlow.geometry.dispose();
+      coreGlowMaterial.dispose();
+
+      filaments.forEach(({ geometry, material }) => {
+        geometry.dispose();
+        material.dispose();
+      });
+
       ringGeometry.dispose();
       ringMaterials.forEach((material) => material.dispose());
+
       halo.geometry.dispose();
       haloMaterial.dispose();
+
       particleGeometry.dispose();
       particleMaterial.dispose();
+
+      glintMaterials.forEach((material) => material.dispose());
+      glintTexture?.dispose();
       if (renderer.domElement.parentElement === mount) {
         mount.removeChild(renderer.domElement);
       }
@@ -932,6 +957,7 @@ export function OrbScene({
     <div
       ref={mountRef}
       className="orb-scene"
+      data-orb-state={state.toLowerCase()}
       aria-hidden="true"
     />
   );
