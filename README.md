@@ -13,22 +13,23 @@ A model is never treated as proof that an action happened. Real computer actions
 
 ## Current downloads
 
-**AERA Orb 0.1.0 · Build 111 · source `ab58bde` · September 28, 2026**
+**AERA Orb 0.1.0 · Build 112 · source `3e1a315` · September 29, 2026**
 
-All three binaries below were produced from the **same current `main` source commit** and passed the complete GitHub Actions build for Build 111: frontend typecheck/tests/build, native Rust tests, branded native icon generation/verification, and platform packaging. The macOS jobs also passed the runtime-linkage check added after the Intel Swift-runtime launch failure. These are development builds; signing, macOS notarization, and the production updater are not finished yet.
+All three binaries below were produced from the **current AERABOT V2 source now on `main`** and passed GitHub Actions Build 112: frontend typecheck/tests/build, native Rust tests, branded native icon generation/verification, and platform packaging. Both macOS jobs also passed the Swift runtime-linkage verification. These are development builds; signing, macOS notarization, and the production updater are not finished yet.
 
-> **Build 111 status:** these downloads include the current persistent local action journal, explicit opt-in one-shot foreground visual context, the latest DAW integration work, the Intel macOS Swift-runtime linker fix, and the new branded AERA application icon assets present in `main` at source `ab58bde`.
+> **Build 112 status:** this build adds the current AERABOT V2 experience to the previously verified runtime foundation: the automatic built-in AERA brain path, simpler first-run/Skill Manager UX, personality profiles, updated talk-back/earcons, Intel-local runtime fixes, and the high-definition living-orb visual pass. The existing permissioned Skill execution, DAW integrations, persistent action journal, and explicit one-shot visual-context boundary remain intact.
 
 | Platform | Architecture | Current build | Build verification |
 |---|---|---|---|
-| **macOS — Apple Silicon** | M1 / M2 / M3 / M4+ · `aarch64-apple-darwin` | **[Download Apple Silicon build](https://github.com/CLIdaho/AERABOT/actions/runs/36515358563/artifacts/11011185924)** | ✅ Build 111 · `AERA Orb_0.1.0_aarch64.dmg` + `.app` |
-| **macOS — Intel** | Intel x86_64 · `x86_64-apple-darwin` | **[Download Intel Mac build](https://github.com/CLIdaho/AERABOT/actions/runs/36515358563/artifacts/11010829341)** | ✅ Build 111 · `AERA Orb_0.1.0_x64.dmg` + `.app` · Swift runtime linkage verified |
-| **Windows 10/11** | x64 · `x86_64-pc-windows-msvc` | **[Download Windows x64 build](https://github.com/CLIdaho/AERABOT/actions/runs/36515358563/artifacts/11010834608)** | ✅ Build 111 · `.msi` + setup `.exe` |
+| **macOS — Apple Silicon** | M1 / M2 / M3 / M4+ · `aarch64-apple-darwin` | **[Download Apple Silicon build](https://github.com/AeraLabs/AERABOT/actions/runs/36661649844/artifacts/11073889737)** | ✅ Build 112 · `AERA Orb_0.1.0_aarch64.dmg` + `.app` |
+| **macOS — Intel** | Intel x86_64 · `x86_64-apple-darwin` | **[Download Intel Mac build](https://github.com/AeraLabs/AERABOT/actions/runs/36661649844/artifacts/11075400117)** | ✅ Build 112 · `AERA Orb_0.1.0_x64.dmg` + `.app` · Swift runtime linkage verified |
+| **Windows 10/11** | x64 · `x86_64-pc-windows-msvc` | **[Download Windows x64 build](https://github.com/AeraLabs/AERABOT/actions/runs/36661649844/artifacts/11075027142)** | ✅ Build 112 · `.msi` + setup `.exe` |
 
-**Full build run:** [AERA Desktop Builds #111](https://github.com/CLIdaho/AERABOT/actions/runs/36515358563)
+**Full build run:** [AERA Desktop Builds #112](https://github.com/AeraLabs/AERABOT/actions/runs/36661649844)
 
-> GitHub Actions artifacts are ZIP downloads and currently expire on **December 28, 2026**. For a private repository, GitHub sign-in with repository access is required. A future signed release channel will replace these temporary artifact links.
-> **Intel Mac note:** Build 111 is compiled and packaged on GitHub's dedicated `macos-15-intel` runner as a real `x86_64-apple-darwin` target. It includes the fix for the Build 105 `@rpath/libswiftCore.dylib` / missing `LC_RPATH` launch failure, and CI now inspects the finished Mach-O runtime linkage before upload. Use the x64 DMG above on Intel Macs. Because the app is still unsigned/unnotarized, macOS may still require **Open Anyway** on first launch; CI verification is not a substitute for physical-hardware soak testing.
+> GitHub Actions artifacts are ZIP downloads and currently expire on **December 29, 2026**. The repository is public. A future signed release channel will replace these temporary artifact links.
+>
+> **Intel Mac note:** Build 112 was compiled and packaged on GitHub's dedicated `macos-15-intel` runner as a real `x86_64-apple-darwin` target. Native Rust tests, the Tauri package build, and the finished Mach-O Swift runtime-linkage verification all passed before the artifact was uploaded. Because the app is still unsigned/unnotarized, macOS may still require **Open Anyway** on first launch; CI verification is not a substitute for physical-hardware soak testing.
 
 
 ### Platform status — what works today
@@ -44,7 +45,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 | Focused-window geometry | ◐ | ◐ | ✅ | macOS requires explicit Accessibility permission; Windows uses native geometry |
 | Window-aware spatial movement | ◐ | ◐ | ✅ | Uses verified foreground geometry; macOS depends on Accessibility permission |
 | First-run Skill Manager | ✅ | ✅ | ✅ | Detects local AI, voice, wake word, window access and DAW bridge readiness |
-| Ollama / llama.cpp / local OpenAI-compatible AI | ✅ | ✅ | ✅ | Local-only adapters; the external local runtime/model must be installed and running |
+| Built-in AERA brain + external local AI adapters | ✅ | ✅ | ✅ | Built-in Qwen3 0.6B + llama.cpp path prepares automatically; Ollama / llama.cpp / loopback OpenAI-compatible runtimes remain optional |
 | whisper.cpp speech-to-text | ◐ | ◐ | ◐ | Works through the configured local whisper service |
 | Piper talk-back | ◐ | ◐ | ◐ | Works through the configured local Piper service; text/earcons remain available without it |
 | Wake phrase → listen → transcribe → action → reply | ◐ | ◐ | ◐ | End-to-end flow is wired; requires the local wake companion/model and whisper service |
@@ -54,7 +55,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 | Logic Pro Skill | ◐ | ◐ | — | macOS-only OSC/controller-assignment bridge; controller setup is not fully automatic yet |
 | Pro Tools Skill | ◐ | ◐ | ◐ | AERA PTSL wrapper/contract exists; the Avid SDK helper still needs completion/build integration |
 | **WAVR first-party Skill** | ✅ | ✅ | ✅ | Native AeraLabs bridge with verified project/transport/full-track state, pause/seek/tempo, track selection, mute/solo/arm, volume/pan, FX inspection and undo where prior state is captured |
-| Opt-in screen / visual context | ◐ | ◐ | ◐ | Build 111 includes explicit session-scoped one-shot foreground capture; broader continuous/context-aware modes are not finished |
+| Opt-in screen / visual context | ◐ | ◐ | ◐ | Build 112 includes explicit session-scoped one-shot foreground capture; broader continuous/context-aware modes are not finished |
 | Signed installers | ⏳ | ⏳ | ⏳ | Current artifacts are development packages |
 | macOS notarization | ⏳ | ⏳ | — | Not finished |
 | Automatic updater | ⏳ | ⏳ | ⏳ | Architecture-aware production update channel not finished |
@@ -62,7 +63,7 @@ Legend: **✅ working**, **◐ working with setup / partial backend**, **— not
 
 ### Verification level
 
-Build 111 is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, generate/verify their native application icons, and package successfully. The two macOS jobs additionally passed the Swift runtime-linkage check.
+Build 112 is **package-verified** on Apple Silicon, Intel x86_64, and Windows x64 through independent CI jobs. That proves the targets compile, test, generate/verify their native application icons, and package successfully. The two macOS jobs additionally passed the Swift runtime-linkage check.
 
 It does **not** yet mean every build has completed a long-duration launch/audio/DAW test on physical hardware. In particular, **Intel Mac remains a mandatory target**, but the current README intentionally distinguishes successful Intel packaging from a real Intel-hardware soak test.
 
@@ -109,7 +110,14 @@ The renderer observes real runtime state. It does not fabricate thinking/acting 
 
 AERA does not require a paid LLM API.
 
-Current adapters:
+Build 112 adds an automatic **built-in AERA Brain** path for Apple Silicon macOS, Intel macOS, and Windows x64. During first-time brain preparation, AERA downloads and checksum-verifies:
+
+- **Qwen3 0.6B · Q4_K_M** as `AERA Core Tiny` — Apache-2.0
+- **llama.cpp b11269** for the current platform — MIT
+
+The model and runtime are stored in AERA's application-data directory rather than bloating the installer itself. AERA exposes preparation progress and keeps direct Skills available while the brain finishes setup.
+
+Optional external local adapters remain supported:
 
 - **Ollama**
 - **llama.cpp**
@@ -117,9 +125,7 @@ Current adapters:
 
 AERA also has an optional fully local wake-word companion. The runtime does not bundle wake-word model weights; users choose a model whose license fits their use case.
 
-Installed models are discovered at runtime. AERA does not hardcode one model family, so new open/local models can be used without changing AERA Core.
-
-The generic OpenAI-compatible adapter is intentionally restricted to `127.0.0.1`, `localhost`, or `::1`. Remote and LAN endpoints are rejected by the native bridge.
+The built-in brain is the zero-setup default, while external installed models can still be discovered and selected. The generic OpenAI-compatible adapter is intentionally restricted to `127.0.0.1`, `localhost`, or `::1`; remote and LAN endpoints are rejected by the native bridge.
 
 ### Free local voice
 
@@ -226,7 +232,7 @@ npm run tauri dev
 
 `check:local` probes the optional local AI and speech services and reports which ones are reachable.
 
-AERA still launches when none are running.
+AERA still launches while optional external services are unavailable, and direct Skills remain available while the built-in brain prepares.
 
 ## Local services
 
