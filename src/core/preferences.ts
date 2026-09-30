@@ -1,6 +1,6 @@
 export type GraphicsQuality = "auto" | "ultra" | "high" | "balanced" | "efficiency";
 export type MotionPreference = "system" | "reduce" | "full";
-export type AiProviderPreference = "auto" | "ollama" | "llamacpp" | "openai_local";
+export type AiProviderPreference = "aera" | "auto" | "ollama" | "llamacpp" | "openai_local";
 export type TalkBackPreference = "auto" | "text" | "voice";
 export type PresenceStyle = "serene" | "balanced" | "expressive";
 export type OrbSizePreference = "compact" | "standard" | "large";
@@ -46,7 +46,7 @@ export const DEFAULT_PREFERENCES: AeraPreferences = {
   micEnabled: true,
   quality: "auto",
   motion: "system",
-  aiProvider: "auto",
+  aiProvider: "aera",
   aiModel: "",
   talkBack: "auto",
   spatialAwareness: true,
@@ -78,7 +78,7 @@ export function loadPreferences(): AeraPreferences {
       motion: ["system", "reduce", "full"].includes(parsed.motion ?? "")
         ? (parsed.motion as MotionPreference)
         : DEFAULT_PREFERENCES.motion,
-      aiProvider: ["auto", "ollama", "llamacpp", "openai_local"].includes(parsed.aiProvider ?? "")
+      aiProvider: ["aera", "auto", "ollama", "llamacpp", "openai_local"].includes(parsed.aiProvider ?? "")
         ? (parsed.aiProvider as AiProviderPreference)
         : DEFAULT_PREFERENCES.aiProvider,
       aiModel: typeof parsed.aiModel === "string" ? parsed.aiModel : "",
