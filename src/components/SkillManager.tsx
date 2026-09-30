@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { brainIsPreparing, formatBrainProgress, type BrainStatus } from "../ai/brain";
 import type { LocalProviderStatus } from "../ai/local";
 import type { SpeechStatus } from "../audio/localSpeech";
 import { VIBE_PROFILES, vibeDefaults } from "../core/personality";
@@ -19,6 +20,7 @@ export interface SkillManagerProps {
   mode?: "wizard" | "advanced";
   preferences: AeraPreferences;
   providers: LocalProviderStatus[];
+  brainStatus: BrainStatus | null;
   skills: SkillSummary[];
   speech: SpeechStatus | null;
   daws: KnownAppStatus[];
@@ -35,6 +37,8 @@ export interface SkillManagerProps {
   ollamaModels: string[];
   busy?: boolean;
   onRefresh(): void;
+  onPrepareBrain(): void;
+  onRepairBrain(): void;
   onPreferenceChange(patch: Partial<AeraPreferences>): void;
   onWindowPermission(): void;
   onVisualContextChange(enabled: boolean): void;
@@ -72,7 +76,8 @@ const PROVIDERS: Array<{
   label: string;
   detail: string;
 }> = [
-  { id: "ollama", label: "Ollama", detail: "Easiest local model library." },
+  { id: "aera", label: "AERA Brain", detail: "Built in · private · no external setup." },
+  { id: "ollama", label: "Ollama", detail: "Optional external local model library." },
   { id: "llamacpp", label: "llama.cpp", detail: "Lightweight GGUF / Intel-friendly." },
   { id: "openai_local", label: "OpenAI-compatible", detail: "Any supported loopback /v1 server." },
 ];
@@ -87,11 +92,24 @@ export function SkillManager(props: SkillManagerProps) {
 
   const selectedProvider =
     props.preferences.aiProvider === "auto"
-      ? props.providers.find((provider) => provider.available && provider.models.length > 0) ??
+      ? props.providers.find(
+          (provider) =>
+            provider.id === "aera" &&
+            provider.available &&
+            provider.models.length > 0,
+        ) ??
+        props.providers.find((provider) => provider.available && provider.models.length > 0) ??
         props.providers.find((provider) => provider.available)
       : props.providers.find((provider) => provider.id === props.preferences.aiProvider);
 
-  const brainReady = Boolean(selectedProvider?.available && selectedProvider.models.length);
+  const builtInSelected =
+    props.preferences.aiProvider === "aera" ||
+    (props.preferences.aiProvider === "auto" && selectedProvider?.id === "aera");
+  const brainReady = builtInSelected
+    ? Boolean(props.brainStatus?.ready)
+    : Boolean(selectedProvider?.available && selectedProvider.models.length);
+  const brainPreparing = brainIsPreparing(props.brainStatus);
+  const brainProgress = formatBrainProgress(props.brainStatus);
   const whisperReady = Boolean(props.speech?.whisperAvailable);
   const piperReady = Boolean(props.speech?.piperAvailable);
   const desktopReady =
@@ -165,7 +183,7 @@ export function SkillManager(props: SkillManagerProps) {
             <h2>{step === 5 ? "AERA is ready." : steps[step]}</h2>
             <p>
               {step === 0 && "Choose how AERA should feel. You can change this anytime."}
-              {step === 1 && "Choose the local brain you want AERA to use. No paid API is required."}
+              {step === 1 && "AERA prepares its own private local brain automatically. Advanced users can still choose another local provider."}
               {step === 2 && "Choose how AERA listens and responds."}
               {step === 3 && "Give AERA only the desktop awareness you want it to have."}
               {step === 4 && "AERA only asks you to connect creative tools detected on this computer."}
@@ -206,20 +224,53 @@ export function SkillManager(props: SkillManagerProps) {
           {step === 1 && (
             <div className="wizard-stack">
               <div className="brain-status-card">
-                <span className={brainReady ? "skill-dot ready" : "skill-dot partial"} />
+                <span className={brainReady ? "skill-dot ready" : brainPreparing ? "skill-dot partial" : "skill-dot offline"} />
                 <div>
-                  <strong>{brainReady ? "Brain connected" : "Brain needs setup"}</strong>
+                  <strong>
+                    {brainReady
+                      ? "AERA Brain ready"
+                      : brainPreparing
+                        ? "Preparing AERA's brain…"
+                        : props.brainStatus?.state === "ERROR"
+                          ? "AERA Brain needs attention"
+                          : "AERA Brain will prepare itself"}
+                  </strong>
                   <small>
-                    {selectedProvider?.available
-                      ? selectedProvider.models.length
-                        ? selectedProvider.name + " · " + selectedProvider.models.length + " model(s) ready"
-                        : selectedProvider.name + " is reachable, but no model is loaded."
-                      : "AERA could not reach a selected local model runtime yet."}
+                    {builtInSelected
+                      ? [
+                          props.brainStatus?.message ?? "AERA will download and verify its local brain automatically.",
+                          brainProgress,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
+                      : selectedProvider?.available
+                        ? selectedProvider.name + " · " + selectedProvider.models.length + " model(s)"
+                        : "The selected external provider is not connected."}
                   </small>
                 </div>
-                <button type="button" disabled={props.busy} onClick={props.onRefresh}>
-                  {props.busy ? "Checking…" : "Reconnect"}
-                </button>
+                {builtInSelected ? (
+                  <button
+                    type="button"
+                    disabled={brainPreparing || props.busy || brainReady}
+                    onClick={
+                      props.brainStatus?.state === "ERROR"
+                        ? props.onRepairBrain
+                        : props.onPrepareBrain
+                    }
+                  >
+                    {brainReady
+                      ? "Ready"
+                      : brainPreparing
+                        ? "Preparing…"
+                        : props.brainStatus?.state === "ERROR"
+                          ? "Repair brain"
+                          : "Prepare brain"}
+                  </button>
+                ) : (
+                  <button type="button" disabled={props.busy} onClick={props.onRefresh}>
+                    {props.busy ? "Checking…" : "Reconnect"}
+                  </button>
+                )}
               </div>
 
               <div className="provider-grid">
@@ -236,12 +287,20 @@ export function SkillManager(props: SkillManagerProps) {
                     >
                       <strong>{provider.label}</strong>
                       <small>{provider.detail}</small>
-                      <em className={status?.available ? "ready" : "offline"}>
-                        {status?.available
-                          ? status.models.length
-                            ? status.models.length + " model(s)"
-                            : "Connected · no model"
-                          : "Not detected"}
+                      <em className={status?.available ? "ready" : provider.id === "aera" && brainPreparing ? "partial" : "offline"}>
+                        {provider.id === "aera"
+                          ? props.brainStatus?.ready
+                            ? "Ready"
+                            : brainPreparing
+                              ? brainProgress || props.brainStatus?.state
+                              : props.brainStatus?.state === "ERROR"
+                                ? "Needs repair"
+                                : "Built in"
+                          : status?.available
+                            ? status.models.length
+                              ? status.models.length + " model(s)"
+                              : "Connected · no model"
+                            : "Not detected"}
                       </em>
                     </button>
                   );
@@ -253,7 +312,7 @@ export function SkillManager(props: SkillManagerProps) {
                 className="wizard-skip"
                 onClick={() => props.onPreferenceChange({ aiProvider: "auto", aiModel: "" })}
               >
-                Auto-detect / decide later
+                Advanced: auto-detect another local provider
               </button>
             </div>
           )}
@@ -369,7 +428,11 @@ export function SkillManager(props: SkillManagerProps) {
               <div className="ready-orb-mark">✦</div>
               <strong>AERA is ready.</strong>
               <p>
-                {brainReady ? "Brain connected." : "Brain setup can be finished later."}
+                {brainReady
+                  ? "Built-in brain ready."
+                  : brainPreparing
+                    ? "AERA is still preparing its local brain."
+                    : "AERA will keep its direct Skills available while the brain finishes setup."}
                 {" "}
                 {props.daws.filter((daw) => daw.installed).length} creative app(s) detected.
                 {" "}
@@ -401,9 +464,18 @@ export function SkillManager(props: SkillManagerProps) {
     {
       title: "Brain",
       state: brainReady ? "ready" : selectedProvider?.available ? "partial" : "offline",
-      detail: selectedProvider?.available
-        ? selectedProvider.name + (selectedProvider.models.length ? " · " + selectedProvider.models.length + " model(s)" : " · no model loaded")
-        : "No selected local AI runtime is reachable.",
+      detail: builtInSelected
+        ? props.brainStatus
+          ? props.brainStatus.message +
+            (brainProgress ? " · " + brainProgress : "") +
+            " · " +
+            props.brainStatus.model +
+            " · " +
+            props.brainStatus.modelDetail
+          : "AERA Brain status is loading."
+        : selectedProvider?.available
+          ? selectedProvider.name + (selectedProvider.models.length ? " · " + selectedProvider.models.length + " model(s)" : " · no model loaded")
+          : "No selected local AI runtime is reachable.",
     },
     {
       title: "Hearing",
@@ -463,12 +535,22 @@ export function SkillManager(props: SkillManagerProps) {
                 })
               }
             >
+              <option value="aera">AERA Brain · built in</option>
               <option value="auto">Auto detect</option>
               <option value="ollama">Ollama</option>
               <option value="llamacpp">llama.cpp</option>
               <option value="openai_local">OpenAI-compatible local</option>
             </select>
-            <small>{selectedProvider?.endpoint ?? "No active endpoint"}</small>
+            <small>
+              {builtInSelected
+                ? props.brainStatus?.ready
+                  ? "Private AERA-managed runtime · no user-facing port"
+                  : props.brainStatus?.message ?? "AERA-managed runtime"
+                : selectedProvider?.endpoint ?? "No active endpoint"}
+            </small>
+            {builtInSelected && props.brainStatus?.state === "ERROR" && (
+              <button type="button" onClick={props.onRepairBrain}>Repair brain</button>
+            )}
           </div>
 
           <div className="advanced-provider">
