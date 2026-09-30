@@ -531,14 +531,16 @@ export function OrbScene({
 
       shellMaterial.color
         .copy(colorA)
-        .lerp(new THREE.Color(0xffffff), 0.74);
-      coreMaterial.color.copy(colorB);
+        .lerp(new THREE.Color("#f8ffff"), 0.78);
+      shellMaterial.emissive.copy(colorB).multiplyScalar(0.1);
+      veilMaterial.color.copy(colorC);
+      coreGlowMaterial.color.copy(colorB);
       particleMaterial.color.copy(colorC);
       ringMaterials[0].color.copy(colorA);
       ringMaterials[1].color.copy(colorB);
       ringMaterials[2].color.copy(colorC);
+      ringMaterials[3].color.copy(warm);
       haloMaterial.color.copy(colorC);
-      lightA.color.copy(colorA);
       lightB.color.copy(colorB);
       lightC.color.copy(colorC);
 
@@ -573,8 +575,10 @@ export function OrbScene({
           ambientCuriosity,
       );
 
-      energyMaterial.uniforms.uTime.value =
-        (now / 1000) * v.energySpeed * Math.max(0.28, motion);
+      const shaderTime =
+        (now / 1000) * v.energySpeed * Math.max(0.24, motion || 0.24);
+
+      energyMaterial.uniforms.uTime.value = shaderTime;
       energyMaterial.uniforms.uEnergy.value =
         v.waveformAmplitude *
         4.6 *
@@ -585,19 +589,49 @@ export function OrbScene({
       energyMaterial.uniforms.uPulse.value =
         transitionPulse + attentionPulse * 0.34;
 
+      glassMaterial.uniforms.uTime.value = shaderTime;
+      glassMaterial.uniforms.uGlow.value =
+        currentGlow * presenceProfile.bloom;
+      glassMaterial.uniforms.uPulse.value =
+        transitionPulse + attentionPulse * 0.26;
+      atmosphereMaterial.uniforms.uGlow.value =
+        currentGlow * presenceProfile.bloom;
+      atmosphereMaterial.uniforms.uPulse.value =
+        transitionPulse + attentionPulse * 0.34;
+
       shellMaterial.opacity =
-        0.46 + currentOpacity * 0.31 + transitionPulse * 0.045;
-      coreMaterial.opacity =
-        0.07 +
-        v.glow * 0.075 +
-        transitionPulse * 0.12 +
-        choreography.corePulse * 0.045;
+        0.15 +
+        currentOpacity * 0.15 +
+        currentGlow * 0.025 +
+        transitionPulse * 0.035;
+      shellMaterial.emissiveIntensity =
+        0.28 + currentGlow * 0.26 + transitionPulse * 0.12;
+      veilMaterial.opacity =
+        0.035 + currentGlow * 0.055 + transitionPulse * 0.035;
+
+      const coreBeat =
+        Math.max(0, Math.sin(now / 148)) *
+        choreography.corePulse *
+        presenceProfile.motion;
+      coreMaterial.opacity = Math.min(
+        1,
+        0.72 + currentGlow * 0.16 + transitionPulse * 0.1,
+      );
       core.scale.setScalar(
+        0.94 +
+          choreography.corePulse * 0.12 +
+          coreBeat * 0.18 +
+          transitionPulse * 0.16,
+      );
+      coreGlowMaterial.opacity =
+        0.07 +
+        v.glow * 0.13 +
+        transitionPulse * 0.16 +
+        coreBeat * 0.08;
+      coreGlow.scale.setScalar(
         choreography.coreScale +
-          Math.sin(now / 140) *
-            0.025 *
-            choreography.corePulse *
-            presenceProfile.motion,
+          coreBeat * 0.13 +
+          transitionPulse * 0.09,
       );
       particleMaterial.opacity =
         v.particleIntensity *
@@ -614,6 +648,8 @@ export function OrbScene({
         ringBase * 0.78 + transitionPulse * 0.13;
       ringMaterials[2].opacity =
         ringBase * 0.62 + transitionPulse * 0.1;
+      ringMaterials[3].opacity =
+        ringBase * 0.3 + transitionPulse * 0.08;
 
       const ambientHalo =
         (currentState === "SPEAKING" || currentState === "LISTENING"
@@ -643,6 +679,93 @@ export function OrbScene({
           presenceProfile.motion;
       rings.forEach((ring) => ring.scale.setScalar(ringScale));
 
+      filaments.forEach(
+        ({ geometry, material, line, filamentIndex }) => {
+          const attribute =
+            geometry.attributes.position as THREE.BufferAttribute;
+          const phase = filamentIndex * 0.73;
+          const verticalOffset =
+            (filamentIndex - (filaments.length - 1) / 2) * 0.015;
+          const stateGain =
+            v.waveformAmplitude *
+            choreography.waveform *
+            (0.85 + presenceProfile.motion * 0.15);
+
+          for (
+            let i = 0;
+            i < qualityProfile.filamentPoints;
+            i += 1
+          ) {
+            const normalized =
+              i / Math.max(1, qualityProfile.filamentPoints - 1);
+            const x = (normalized - 0.5) * 1.58;
+            const envelope = Math.pow(
+              Math.max(0, 1 - Math.pow(x / 0.86, 2)),
+              0.72,
+            );
+            const wave =
+              Math.sin(
+                x * (8.6 + filamentIndex * 0.14) -
+                  shaderTime * (1.42 + filamentIndex * 0.055) +
+                  phase,
+              ) *
+                (0.08 + stateGain * 0.29) *
+                envelope +
+              Math.sin(
+                x * 4.15 +
+                  shaderTime * 0.72 +
+                  filamentIndex * 0.92,
+              ) *
+                0.065 *
+                envelope;
+            const y =
+              wave +
+              verticalOffset +
+              Math.cos(
+                x * 5.8 - shaderTime * 0.44 + phase,
+              ) *
+                0.025 *
+                envelope;
+            const z =
+              Math.sin(
+                x * 4.75 +
+                  shaderTime * 0.62 +
+                  filamentIndex * 1.16,
+              ) *
+              0.23 *
+              envelope;
+            attribute.setXYZ(i, x, y, z);
+          }
+          attribute.needsUpdate = true;
+
+          material.opacity =
+            (filamentIndex % 3 === 0 ? 0.58 : 0.24) +
+            currentGlow * 0.09 +
+            transitionPulse * 0.13;
+          material.color.copy(
+            filamentIndex % 4 === 0
+              ? colorA
+              : filamentIndex % 4 === 1
+                ? colorB
+                : filamentIndex % 4 === 2
+                  ? colorC
+                  : warm,
+          );
+
+          if (!reducedMotion) {
+            line.rotation.y +=
+              dt *
+              (0.06 + filamentIndex * 0.008) *
+              v.energySpeed *
+              motion;
+            line.rotation.z +=
+              dt *
+              (filamentIndex % 2 === 0 ? 0.035 : -0.028) *
+              motion;
+          }
+        },
+      );
+
       if (!reducedMotion) {
         const orbit = presenceProfile.orbit;
         group.rotation.y += dt * 0.105 * v.energySpeed * motion;
@@ -669,9 +792,11 @@ export function OrbScene({
           (currentState === "THINKING" ? 0.62 : 0.38) *
           v.energySpeed *
           motion;
-        core.rotation.y -= dt * 0.18 * v.energySpeed * motion;
+        veil.rotation.y -= dt * 0.095 * v.energySpeed * motion;
         particles.rotation.y -=
-          dt * 0.14 * v.energySpeed * motion;
+          dt * 0.13 * v.energySpeed * motion;
+        particles.rotation.x +=
+          dt * 0.028 * v.energySpeed * motion;
 
         rings[0].rotation.z +=
           dt * 0.055 * orbit * choreography.ringSpin;
@@ -679,6 +804,8 @@ export function OrbScene({
           dt * 0.07 * orbit * choreography.ringSpin;
         rings[2].rotation.x +=
           dt * 0.045 * orbit * choreography.ringSpin;
+        rings[3].rotation.z -=
+          dt * 0.032 * orbit * choreography.ringSpin;
 
         const breath =
           Math.sin((now / 1000) * (0.82 + v.energySpeed * 0.16)) *
@@ -746,6 +873,30 @@ export function OrbScene({
         );
       }
       ringAttr.needsUpdate = true;
+
+      glintMaterials.forEach((material, index) => {
+        material.opacity =
+          (index === 0 ? 0.58 : 0.24) +
+          currentGlow * (index === 0 ? 0.14 : 0.06) +
+          transitionPulse * 0.1;
+      });
+      if (!reducedMotion) {
+        glints.forEach((glint, index) => {
+          const baseX = index === 0 ? -0.37 : index === 1 ? 0.51 : 0.08;
+          const baseY = index === 0 ? 0.47 : index === 1 ? -0.32 : 0.72;
+          glint.position.x = baseX + pointerX * (0.018 + index * 0.006);
+          glint.position.y = baseY - pointerY * (0.014 + index * 0.005);
+        });
+      }
+
+      lightA.intensity =
+        7.2 + currentGlow * 1.8 + transitionPulse * 1.5;
+      lightB.intensity =
+        4.8 + currentGlow * 2.1 + transitionPulse * 1.4;
+      lightC.intensity =
+        3.6 + currentGlow * 1.4;
+      warmLight.intensity =
+        1.4 + currentGlow * 0.8 + transitionPulse * 0.8;
 
       renderer.render(scene, camera);
       raf = requestAnimationFrame(animate);
