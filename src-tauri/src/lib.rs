@@ -1,3 +1,4 @@
+mod brain;
 mod daw_bridge;
 mod desktop_apps;
 mod foreground;
@@ -132,6 +133,21 @@ fn list_monitors(window: WebviewWindow) -> Result<Vec<MonitorSnapshot>, String> 
 #[tauri::command]
 async fn probe_local_ai() -> Result<Vec<LocalProviderStatus>, String> {
     local_ai::probe().await
+}
+
+#[tauri::command]
+fn builtin_brain_status() -> brain::BrainStatus {
+    brain::status()
+}
+
+#[tauri::command]
+async fn ensure_builtin_brain(app: tauri::AppHandle) -> Result<brain::BrainStatus, String> {
+    brain::ensure(app).await
+}
+
+#[tauri::command]
+async fn repair_builtin_brain(app: tauri::AppHandle) -> Result<brain::BrainStatus, String> {
+    brain::repair(app).await
 }
 
 #[tauri::command]
@@ -381,6 +397,9 @@ pub fn run() {
             if let tauri::WindowEvent::Moved(position) = event {
                 let _ = position::save(window.app_handle(), *position);
             }
+            if let tauri::WindowEvent::Destroyed = event {
+                brain::shutdown();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             system_profile,
@@ -390,6 +409,9 @@ pub fn run() {
             move_orb_physical,
             list_monitors,
             probe_local_ai,
+            builtin_brain_status,
+            ensure_builtin_brain,
+            repair_builtin_brain,
             local_chat,
             local_vision,
             visual_context_status,
