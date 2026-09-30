@@ -134,6 +134,10 @@ export function OrbScene({
     const targetA = new THREE.Color();
     const targetB = new THREE.Color();
     const targetC = new THREE.Color();
+    const successTint = new THREE.Color("#6affd6");
+    const thinkingTint = new THREE.Color("#5f8cff");
+    const warningTint = new THREE.Color("#ffc86f");
+    const errorTint = new THREE.Color("#ff6174");
 
     const warm = new THREE.Color("#ffc56f");
     const shellGeometry = new THREE.SphereGeometry(
@@ -524,6 +528,19 @@ export function OrbScene({
       targetA.set(paletteRef.current.primary);
       targetB.set(paletteRef.current.secondary);
       targetC.set(paletteRef.current.accent);
+
+      if (currentState === "SUCCESS") {
+        targetB.lerp(successTint, 0.62);
+      } else if (currentState === "THINKING" || currentState === "UNDERSTANDING") {
+        targetC.lerp(thinkingTint, 0.48);
+      } else if (currentState === "WARNING") {
+        targetB.lerp(warningTint, 0.58);
+        targetC.lerp(warningTint, 0.28);
+      } else if (currentState === "ERROR") {
+        targetB.lerp(errorTint, 0.72);
+        targetC.lerp(warningTint, 0.34);
+      }
+
       const colorSmooth = 1 - Math.exp(-dt * 6);
       colorA.lerp(targetA, colorSmooth);
       colorB.lerp(targetB, colorSmooth);
