@@ -14,9 +14,9 @@ export interface OrbPalette {
 }
 
 export const DEFAULT_ORB_PALETTE: OrbPalette = {
-  primary: "#eefcff",
-  secondary: "#7ff0d2",
-  accent: "#65aaff",
+  primary: "#e8fcff",
+  secondary: "#45efd1",
+  accent: "#4e7fff",
 };
 
 export interface AeraPreferences {
