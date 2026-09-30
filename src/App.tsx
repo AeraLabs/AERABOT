@@ -9,6 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  ensureBuiltinBrain,
+  getBuiltinBrainStatus,
+  repairBuiltinBrain,
+  type BrainStatus,
+} from "./ai/brain";
 import { probeLocalAI, resolveProvider, type ChatMessage, type LocalProviderStatus } from "./ai/local";
 import { planWithLocalModel } from "./ai/planner";
 import { playEarcon, unlockAudio } from "./audio/earcons";
@@ -158,6 +164,7 @@ export function App() {
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [providers, setProviders] = useState<LocalProviderStatus[]>([]);
+  const [brainStatus, setBrainStatus] = useState<BrainStatus | null>(null);
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
   const [reaperStatus, setReaperStatus] = useState<KnownAppStatus | null>(null);
   const [dawStatuses, setDawStatuses] = useState<KnownAppStatus[]>([]);
@@ -193,7 +200,8 @@ export function App() {
 
   const refreshLocalServices = async () => {
     setServiceBusy(true);
-    const [aiResult, speechResult, dawsResult, oscResult] = await Promise.allSettled([
+    const [brainResult, aiResult, speechResult, dawsResult, oscResult] = await Promise.allSettled([
+      getBuiltinBrainStatus(),
       probeLocalAI(),
       probeLocalSpeech(),
       Promise.all(
@@ -204,6 +212,7 @@ export function App() {
       getReaperOscStatus(),
     ]);
 
+    if (brainResult.status === "fulfilled") setBrainStatus(brainResult.value);
     if (aiResult.status === "fulfilled") setProviders(aiResult.value);
     if (speechResult.status === "fulfilled") setSpeechStatus(speechResult.value);
     if (dawsResult.status === "fulfilled") {
@@ -480,6 +489,85 @@ export function App() {
   useEffect(() => {
     savePreferences(preferences);
   }, [preferences]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    if (!["aera", "auto"].includes(preferences.aiProvider)) return;
+
+    let disposed = false;
+
+    const prepare = async () => {
+      try {
+        const status = await ensureBuiltinBrain();
+        if (disposed) return;
+        setBrainStatus(status);
+        const nextProviders = await probeLocalAI();
+        if (!disposed) setProviders(nextProviders);
+      } catch {
+        if (!disposed) {
+          getBuiltinBrainStatus()
+            .then((status) => {
+              if (!disposed) setBrainStatus(status);
+            })
+            .catch(() => undefined);
+        }
+      }
+    };
+
+    prepare();
+    return () => {
+      disposed = true;
+    };
+  }, [preferences.aiProvider]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    let wasReady = false;
+    const pollBrain = async () => {
+      try {
+        const status = await getBuiltinBrainStatus();
+        if (disposed) return;
+        setBrainStatus(status);
+
+        if (status.ready && !wasReady) {
+          wasReady = true;
+          const nextProviders = await probeLocalAI();
+          if (!disposed) setProviders(nextProviders);
+        } else if (!status.ready) {
+          wasReady = false;
+        }
+      } catch {
+        // The direct Skills remain usable even if brain status polling fails.
+      }
+    };
+
+    pollBrain();
+    const timer = window.setInterval(pollBrain, 750);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const prepareBuiltinBrain = async () => {
+    try {
+      setBrainStatus(await ensureBuiltinBrain());
+      setProviders(await probeLocalAI());
+    } catch {
+      setBrainStatus(await getBuiltinBrainStatus().catch(() => null));
+    }
+  };
+
+  const repairBrain = async () => {
+    try {
+      setBrainStatus(await repairBuiltinBrain());
+      setProviders(await probeLocalAI());
+    } catch {
+      setBrainStatus(await getBuiltinBrainStatus().catch(() => null));
+    }
+  };
 
   useEffect(() => {
     if (activeProvider && activeModel) return;
@@ -1011,8 +1099,12 @@ export function App() {
     if (!provider || !model) {
       runtime.setState("QUESTION");
       const reply =
-        confusionFor(preferences.vibe, "brain") +
-        " Open AI Connections and I’ll show you what’s missing.";
+        brainStatus && !brainStatus.ready && ["aera", "auto"].includes(preferences.aiProvider)
+          ? brainStatus.state === "ERROR"
+            ? "My local brain needs a repair. Open AI Connections and choose Repair brain."
+            : brainStatus.message
+          : confusionFor(preferences.vibe, "brain") +
+            " Open AI Connections and I’ll show you what’s missing.";
       appendAssistant(reply, "AERA brain · connection needed");
       runtime.notify(reply);
       return;
@@ -1349,6 +1441,7 @@ export function App() {
           mode={skillManagerMode}
           preferences={preferences}
           providers={providers}
+          brainStatus={brainStatus}
           skills={runtime.skills.list()}
           speech={speechStatus}
           daws={dawStatuses}
@@ -1367,6 +1460,8 @@ export function App() {
           }
           busy={serviceBusy}
           onRefresh={() => refreshLocalServices()}
+          onPrepareBrain={() => void prepareBuiltinBrain()}
+          onRepairBrain={() => void repairBrain()}
           onPreferenceChange={patchPreferences}
           onWindowPermission={enableWindowAwareness}
           onVisualContextChange={setVisualContextPreference}
