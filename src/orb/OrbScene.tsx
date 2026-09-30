@@ -312,7 +312,14 @@ export function OrbScene({
     );
 
     const ringGeometry = new THREE.BufferGeometry();
-    const ringCount = quality === "efficiency" ? 72 : 144;
+    const ringCount =
+      effectiveQuality === "efficiency"
+        ? 72
+        : effectiveQuality === "balanced"
+          ? 108
+          : effectiveQuality === "high"
+            ? 144
+            : 180;
     const ringPositions = new Float32Array(ringCount * 3);
     ringGeometry.setAttribute(
       "position",
@@ -338,6 +345,12 @@ export function OrbScene({
         opacity: 0.38,
         blending: THREE.AdditiveBlending,
       }),
+      new THREE.LineBasicMaterial({
+        color: warm,
+        transparent: true,
+        opacity: 0.2,
+        blending: THREE.AdditiveBlending,
+      }),
     ];
 
     const rings = ringMaterials.map((material, index) => {
@@ -358,19 +371,22 @@ export function OrbScene({
       blending: THREE.AdditiveBlending,
     });
     const halo = new THREE.Mesh(
-      new THREE.RingGeometry(1.05, 1.11, quality === "efficiency" ? 48 : 96),
+      new THREE.RingGeometry(
+        1.055,
+        1.12,
+        effectiveQuality === "efficiency" ? 48 : 96,
+      ),
       haloMaterial,
     );
     halo.rotation.x = Math.PI * 0.5;
     group.add(halo);
 
-    const particleCount =
-      quality === "efficiency" ? 48 : quality === "balanced" ? 90 : 150;
+    const particleCount = qualityProfile.particleCount;
     const particlePositions = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount; i += 1) {
-      const radius = 0.22 + Math.random() * 0.7;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const radius = 0.18 + deterministicUnit(i + 1) * 0.72;
+      const theta = deterministicUnit(i + 121) * Math.PI * 2;
+      const phi = Math.acos(deterministicUnit(i + 291) * 2 - 1);
       particlePositions[i * 3] =
         radius * Math.sin(phi) * Math.cos(theta);
       particlePositions[i * 3 + 1] = radius * Math.cos(phi);
@@ -383,7 +399,7 @@ export function OrbScene({
       new THREE.BufferAttribute(particlePositions, 3),
     );
     const particleMaterial = new THREE.PointsMaterial({
-      size: 0.026,
+      size: effectiveQuality === "efficiency" ? 0.021 : 0.026,
       color: colorC,
       transparent: true,
       opacity: 0.65,
@@ -396,16 +412,47 @@ export function OrbScene({
     );
     group.add(particles);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.72));
-    const lightA = new THREE.PointLight(colorA, 7, 9);
-    lightA.position.set(-2.4, 1.9, 3);
+    const glintTexture = makeLivingGlowTexture();
+    const glints: THREE.Sprite[] = [];
+    const glintMaterials: THREE.SpriteMaterial[] = [];
+    if (glintTexture) {
+      [
+        { x: -0.37, y: 0.47, z: 0.79, size: 0.42, opacity: 0.72 },
+        { x: 0.51, y: -0.32, z: 0.78, size: 0.23, opacity: 0.32 },
+        { x: 0.08, y: 0.72, z: 0.55, size: 0.17, opacity: 0.26 },
+      ]
+        .slice(0, qualityProfile.glints)
+        .forEach((config) => {
+          const material = new THREE.SpriteMaterial({
+            map: glintTexture,
+            color: 0xffffff,
+            transparent: true,
+            opacity: config.opacity,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+          });
+          const sprite = new THREE.Sprite(material);
+          sprite.position.set(config.x, config.y, config.z);
+          sprite.scale.setScalar(config.size);
+          group.add(sprite);
+          glintMaterials.push(material);
+          glints.push(sprite);
+        });
+    }
+
+    scene.add(new THREE.AmbientLight(0xeafcff, 0.48));
+    const lightA = new THREE.PointLight(0xf4fdff, 8.4, 10);
+    lightA.position.set(-2.4, 2.3, 3.4);
     scene.add(lightA);
-    const lightB = new THREE.PointLight(colorB, 5.2, 8);
-    lightB.position.set(2.3, -1.1, 2.5);
+    const lightB = new THREE.PointLight(colorB, 6.2, 9);
+    lightB.position.set(2.4, -1.3, 2.6);
     scene.add(lightB);
-    const lightC = new THREE.PointLight(colorC, 3.2, 7);
-    lightC.position.set(0.2, 2.2, 1.6);
+    const lightC = new THREE.PointLight(colorC, 4.7, 8);
+    lightC.position.set(0.35, 2.1, 1.8);
     scene.add(lightC);
+    const warmLight = new THREE.PointLight(warm, 2.1, 6);
+    warmLight.position.set(-0.6, -1.8, 2.1);
+    scene.add(warmLight);
 
     let raf = 0;
     let pointerX = 0;
