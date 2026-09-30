@@ -135,73 +135,181 @@ export function OrbScene({
     const targetB = new THREE.Color();
     const targetC = new THREE.Color();
 
-    const shellMaterial = new THREE.MeshPhysicalMaterial({
-      color: colorA.clone().lerp(new THREE.Color(0xffffff), 0.74),
-      roughness: 0.06,
-      metalness: 0.035,
-      transmission: 0.92,
-      thickness: 0.9,
-      ior: 1.43,
-      clearcoat: 1,
-      clearcoatRoughness: 0.065,
-      transparent: true,
-      opacity: 0.78,
-      iridescence: 0.5,
-      iridescenceIOR: 1.28,
-      iridescenceThicknessRange: [80, 480],
-    });
-    const shell = new THREE.Mesh(
-      new THREE.SphereGeometry(
-        1,
-        quality === "efficiency" ? 48 : 88,
-        quality === "efficiency" ? 32 : 72,
-      ),
-      shellMaterial,
+    const warm = new THREE.Color("#ffc56f");
+    const shellGeometry = new THREE.SphereGeometry(
+      1,
+      qualityProfile.sphereSegments,
+      Math.max(28, Math.round(qualityProfile.sphereSegments * 0.72)),
     );
+
+    const shellMaterial = new THREE.MeshPhysicalMaterial({
+      color: colorA.clone().lerp(new THREE.Color("#f7ffff"), 0.78),
+      emissive: colorB.clone().multiplyScalar(0.08),
+      emissiveIntensity: 0.42,
+      roughness: 0.025,
+      metalness: 0.02,
+      transmission: 0.92,
+      thickness: 1.18,
+      ior: 1.46,
+      clearcoat: 1,
+      clearcoatRoughness: 0.025,
+      transparent: true,
+      opacity: 0.28,
+      iridescence: effectiveQuality === "efficiency" ? 0.12 : 0.72,
+      iridescenceIOR: 1.32,
+      iridescenceThicknessRange: [90, 520],
+      depthWrite: false,
+    });
+    const shell = new THREE.Mesh(shellGeometry, shellMaterial);
     group.add(shell);
 
-    const energyMaterial = new THREE.ShaderMaterial({
-      vertexShader,
-      fragmentShader,
+    const glassMaterial = new THREE.ShaderMaterial({
+      vertexShader: livingGlassVertexShader,
+      fragmentShader: livingGlassFragmentShader,
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       uniforms: {
         uTime: { value: 0 },
-        uEnergy: { value: 0.7 },
         uGlow: { value: 0.8 },
-        uOpacity: { value: 0.8 },
         uPulse: { value: 0 },
         uColorA: { value: colorA },
         uColorB: { value: colorB },
         uColorC: { value: colorC },
       },
     });
-    const energy = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(
-        0.72,
-        quality === "efficiency" ? 3 : 5,
+    const glassShell = new THREE.Mesh(shellGeometry.clone(), glassMaterial);
+    glassShell.scale.setScalar(1.012);
+    group.add(glassShell);
+
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+      vertexShader: livingAtmosphereVertexShader,
+      fragmentShader: livingAtmosphereFragmentShader,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uGlow: { value: 0.8 },
+        uPulse: { value: 0 },
+        uColorB: { value: colorB },
+        uColorC: { value: colorC },
+      },
+    });
+    const atmosphere = new THREE.Mesh(
+      new THREE.SphereGeometry(
+        1.055,
+        Math.max(36, Math.round(qualityProfile.sphereSegments * 0.75)),
+        Math.max(24, Math.round(qualityProfile.sphereSegments * 0.52)),
       ),
+      atmosphereMaterial,
+    );
+    group.add(atmosphere);
+
+    const energyMaterial = new THREE.ShaderMaterial({
+      vertexShader: livingEnergyVertexShader,
+      fragmentShader: livingEnergyFragmentShader,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uTime: { value: 0 },
+        uEnergy: { value: 0.72 },
+        uGlow: { value: 0.86 },
+        uOpacity: { value: 0.92 },
+        uPulse: { value: 0 },
+        uColorA: { value: colorA },
+        uColorB: { value: colorB },
+        uColorC: { value: colorC },
+        uWarm: { value: warm },
+      },
+    });
+    const energy = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.76, qualityProfile.energyDetail),
       energyMaterial,
     );
     group.add(energy);
 
-    const coreMaterial = new THREE.MeshBasicMaterial({
-      color: colorB,
+    const veilMaterial = new THREE.MeshBasicMaterial({
+      color: colorC,
       transparent: true,
-      opacity: 0.16,
+      opacity: 0.075,
+      depthWrite: false,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const veil = new THREE.Mesh(
+      new THREE.SphereGeometry(
+        0.82,
+        Math.max(32, qualityProfile.sphereSegments - 18),
+        Math.max(20, Math.round(qualityProfile.sphereSegments * 0.5)),
+      ),
+      veilMaterial,
+    );
+    group.add(veil);
+
+    const coreMaterial = new THREE.MeshBasicMaterial({
+      color: new THREE.Color("#fbffff"),
+      transparent: true,
+      opacity: 0.92,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
     const core = new THREE.Mesh(
       new THREE.SphereGeometry(
-        0.4,
-        quality === "efficiency" ? 28 : 48,
-        quality === "efficiency" ? 18 : 32,
+        0.085,
+        effectiveQuality === "efficiency" ? 20 : 32,
+        effectiveQuality === "efficiency" ? 14 : 24,
       ),
       coreMaterial,
     );
     group.add(core);
+
+    const coreGlowMaterial = new THREE.MeshBasicMaterial({
+      color: colorB,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const coreGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(
+        0.34,
+        effectiveQuality === "efficiency" ? 22 : 36,
+        effectiveQuality === "efficiency" ? 14 : 24,
+      ),
+      coreGlowMaterial,
+    );
+    group.add(coreGlow);
+
+    const filamentColors = [colorA, colorB, colorC, warm];
+    const filaments = Array.from(
+      { length: qualityProfile.filamentCount },
+      (_, filamentIndex) => {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(
+            new Float32Array(qualityProfile.filamentPoints * 3),
+            3,
+          ),
+        );
+        const material = new THREE.LineBasicMaterial({
+          color: filamentColors[filamentIndex % filamentColors.length],
+          transparent: true,
+          opacity: filamentIndex % 3 === 0 ? 0.78 : 0.34,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+        const line = new THREE.Line(geometry, material);
+        line.rotation.z = filamentIndex * 0.41;
+        line.rotation.y = filamentIndex * 0.29;
+        group.add(line);
+        return { geometry, material, line, filamentIndex };
+      },
+    );
 
     const ringGeometry = new THREE.BufferGeometry();
     const ringCount = quality === "efficiency" ? 72 : 144;
